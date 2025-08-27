@@ -1,0 +1,46 @@
+{
+  "name": "playwright-smart",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-powered test management and analytics platform",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "mcp:smoke:dashboard": "node scripts/mcp-smoke.mjs dashboard",
+    "mcp:smoke:test-bank": "node scripts/mcp-smoke.mjs test-bank",
+    "mcp:smoke:reports": "node scripts/mcp-smoke.mjs reports", 
+    "mcp:smoke:analytics": "node scripts/mcp-smoke.mjs analytics",
+    "mcp:epu": "node scripts/mcp-epu.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-table": "^8.10.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.17.0",
+    "recharts": "^2.8.0",
+    "zustand": "^4.4.4",
+    "lucide-react": "^0.288.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@typescript-eslint/eslint-plugin": "^6.10.0",
+    "@typescript-eslint/parser": "^6.10.0",
+    "@vitejs/plugin-react": "^4.1.0",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.53.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.4",
+    "postcss": "^8.4.31",
+    "prettier": "^3.0.3",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.2.2",
+    "vite": "^4.5.0"
+  }
+}
