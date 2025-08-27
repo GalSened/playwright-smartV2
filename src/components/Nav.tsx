@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/app/utils';
 import { BarChart3, Database, FileText, Home, TestTube } from 'lucide-react';
+import { DarkModeToggle } from './DarkModeToggle';
 
 const navItems = [
   {
@@ -61,10 +62,11 @@ export function Nav() {
               })}
             </nav>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <div className="text-sm text-muted-foreground">
               Environment: <span className="text-foreground font-medium">Staging</span>
             </div>
+            <DarkModeToggle />
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ export interface TestDefinition {
   risk: 'low' | 'med' | 'high';
   description?: string;
   estimatedDuration?: number;
+  steps: string[];
 }
 
 export interface Suite {
@@ -15,6 +16,13 @@ export interface Suite {
   testIds: string[];
   tags: string[];
   createdAt: string;
+  executionOptions?: SuiteExecutionOptions;
+}
+
+export interface SuiteExecutionOptions {
+  mode: 'headed' | 'headless';
+  execution: 'parallel' | 'sequential';
+  retries: 1 | 2 | 3;
 }
 
 export interface SuiteDraft {
@@ -136,4 +144,66 @@ export interface SuiteRunRequest {
   environment?: string;
   parallel?: boolean;
   tags?: string[];
+  executionOptions?: SuiteExecutionOptions;
+}
+
+// Scheduled Runs Types
+export interface ScheduledRun {
+  id: string;
+  suiteId: string;
+  suiteName: string;
+  timezone: string; // e.g., 'Asia/Jerusalem'
+  runAtUtc: string; // ISO 8601 UTC timestamp
+  runAtLocal: string; // ISO 8601 local time for display
+  notes?: string;
+  status: 'scheduled' | 'running' | 'completed' | 'failed' | 'cancelled';
+  recurrence?: 'none' | 'daily' | 'weekly';
+  createdAt: string;
+  updatedAt: string;
+  lastRunId?: string;
+  nextRunAt?: string; // For recurring schedules
+}
+
+export interface ScheduleRunExecution {
+  id: string;
+  scheduleId: string;
+  runId?: string; // Links to RunRecord when executed
+  startedAt: string;
+  finishedAt?: string;
+  status: 'running' | 'succeeded' | 'failed' | 'cancelled';
+  retries: number;
+  resultSummary?: string;
+  artifactsUrl?: string;
+  errorMessage?: string;
+}
+
+export interface CreateScheduledRunRequest {
+  suiteId: string;
+  timezone: string;
+  runAtLocal: string; // Local time input from user
+  notes?: string;
+  recurrence?: 'none' | 'daily' | 'weekly';
+  runNow?: boolean; // If true, also execute immediately
+}
+
+export interface UpdateScheduledRunRequest {
+  runAtLocal?: string;
+  notes?: string;
+  recurrence?: 'none' | 'daily' | 'weekly';
+}
+
+export interface ScheduledRunsResponse {
+  schedules: ScheduledRun[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// Time zone conversion utilities
+export interface TimezoneInfo {
+  timezone: string;
+  displayName: string;
+  abbreviation: string;
+  offset: string; // e.g., '+02:00'
+  isDST: boolean;
 }

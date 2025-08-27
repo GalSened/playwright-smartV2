@@ -1,11 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/app/store';
-import { api } from '@/app/api';
+import { api, getCommonSuitePresets } from '@/app/api';
 import { Loading, TableSkeleton } from '@/components/Loading';
 import { EmptyState } from '@/components/EmptyState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Table } from '@/components/Table';
+import { TestRunScheduler } from '@/components/TestRunScheduler';
 import { formatDuration, getRiskColor, generateId } from '@/app/utils';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { TestDefinition, Suite } from '@/app/types';
@@ -18,7 +19,8 @@ import {
   X,
   Check,
   Clock,
-  Users
+  Users,
+  Calendar
 } from 'lucide-react';
 
 export function TestBankPage() {
@@ -43,9 +45,17 @@ export function TestBankPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
   const [riskFilter, setRiskFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
   const [suiteName, setSuiteName] = useState('');
   const [suiteDescription, setSuiteDescription] = useState('');
   const [runningTests, setRunningTests] = useState<string[]>([]);
+  const [suitePresets] = useState(getCommonSuitePresets());
+  const [activeTab, setActiveTab] = useState<'tests' | 'scheduler'>('tests');
+  
+  // Suite execution options
+  const [executionMode, setExecutionMode] = useState<'headed' | 'headless'>('headless');
+  const [executionType, setExecutionType] = useState<'parallel' | 'sequential'>('parallel');
+  const [retryCount, setRetryCount] = useState<1 | 2 | 3>(1);
 
   // Load data on mount
   useEffect(() => {
@@ -80,14 +90,20 @@ export function TestBankPage() {
       
       const matchesModule = moduleFilter === '' || test.module === moduleFilter;
       const matchesRisk = riskFilter === '' || test.risk === riskFilter;
+      const matchesTag = tagFilter === '' || test.tags.includes(tagFilter);
       
-      return matchesSearch && matchesModule && matchesRisk;
+      return matchesSearch && matchesModule && matchesRisk && matchesTag;
     });
-  }, [tests, searchQuery, moduleFilter, riskFilter]);
+  }, [tests, searchQuery, moduleFilter, riskFilter, tagFilter]);
 
-  // Get unique modules for filter
+  // Get unique modules and tags for filters
   const modules = useMemo(() => {
     return [...new Set(tests.map(test => test.module))];
+  }, [tests]);
+
+  const availableTags = useMemo(() => {
+    const allTags = tests.flatMap(test => test.tags);
+    return [...new Set(allTags)].sort();
   }, [tests]);
 
   // Selected tests data
@@ -105,11 +121,19 @@ export function TestBankPage() {
     if (!suiteName.trim() || selectedTests.length === 0) return;
     
     try {
+      // Extract tags from selected tests
+      const suiteTags = [...new Set(selectedTestsData.flatMap(test => test.tags))];
+      
       const newSuite = await api.createSuite({
         name: suiteName,
         description: suiteDescription,
         testIds: selectedTests,
-        tags: [],
+        tags: suiteTags,
+        executionOptions: {
+          mode: executionMode,
+          execution: executionType,
+          retries: retryCount
+        }
       });
       
       addSuite(newSuite);
@@ -117,10 +141,36 @@ export function TestBankPage() {
       setSuiteDescription('');
       clearSelection();
       
-      // Show success message (in real app would use toast)
       console.log('Suite created successfully');
     } catch (error) {
       console.error('Failed to create suite:', error);
+    }
+  };
+
+  // Handle creating a suite from preset
+  const handleCreatePresetSuite = async (preset: typeof suitePresets[0]) => {
+    try {
+      // Find tests that match the preset tags
+      const matchingTests = tests.filter(test => 
+        preset.tags.some(tag => test.tags.includes(tag))
+      );
+      
+      const newSuite = await api.createSuite({
+        name: preset.name,
+        description: preset.description,
+        testIds: matchingTests.map(t => t.id),
+        tags: preset.tags,
+        executionOptions: {
+          mode: executionMode,
+          execution: executionType,
+          retries: retryCount
+        }
+      });
+      
+      addSuite(newSuite);
+      console.log(`${preset.name} created successfully with ${matchingTests.length} tests`);
+    } catch (error) {
+      console.error('Failed to create preset suite:', error);
     }
   };
 
@@ -230,18 +280,23 @@ export function TestBankPage() {
       ),
     },
     {
-      accessorKey: 'tags',
-      header: 'Tags',
+      accessorKey: 'steps',
+      header: 'Test Steps',
       cell: ({ row }) => (
-        <div className="flex flex-wrap gap-1" data-testid="test-tags">
-          {row.original.tags.map((tag) => (
-            <span 
-              key={tag}
-              className="status-badge bg-accent text-accent-foreground text-xs"
-            >
-              {tag}
-            </span>
-          ))}
+        <div className="max-w-xs" data-testid="test-steps">
+          <ul className="text-xs text-muted-foreground space-y-1">
+            {row.original.steps?.slice(0, 3).map((step, index) => (
+              <li key={index} className="flex items-start gap-1">
+                <span className="text-accent font-medium">{index + 1}.</span>
+                <span className="truncate">{step}</span>
+              </li>
+            ))}
+            {row.original.steps?.length > 3 && (
+              <li className="text-accent text-xs font-medium">
+                +{row.original.steps.length - 3} more steps
+              </li>
+            )}
+          </ul>
         </div>
       ),
       enableSorting: false,
@@ -291,11 +346,52 @@ export function TestBankPage() {
     );
   }
 
+  // Get selected suite for scheduling
+  const selectedSuiteForScheduling = useMemo(() => {
+    if (selectedTests.length === 0) return null;
+    
+    return {
+      id: currentSuite?.id || `temp-${Date.now()}`,
+      name: suiteName || `Selected Tests (${selectedTests.length})`,
+      testIds: selectedTests
+    };
+  }, [selectedTests, currentSuite, suiteName]);
+
   return (
     <div data-testid="test-bank-page">
       <h1 className="text-3xl font-bold mb-8" data-testid="page-title">Test Bank</h1>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Tab Navigation */}
+      <div className="flex space-x-1 mb-6 border-b">
+        <button
+          onClick={() => setActiveTab('tests')}
+          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+            activeTab === 'tests'
+              ? 'bg-primary text-primary-foreground border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+          data-testid="tests-tab"
+        >
+          <TestTube className="w-4 h-4 inline-block mr-2" />
+          Tests & Suites
+        </button>
+        <button
+          onClick={() => setActiveTab('scheduler')}
+          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+            activeTab === 'scheduler'
+              ? 'bg-primary text-primary-foreground border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+          data-testid="scheduler-tab"
+        >
+          <Calendar className="w-4 h-4 inline-block mr-2" />
+          Scheduled Runs
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'tests' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Tests Section */}
         <div className="lg:col-span-2" data-testid="tests-section">
           <Card>
@@ -341,13 +437,28 @@ export function TestBankPage() {
                   <option value="med">Medium</option>
                   <option value="high">High</option>
                 </select>
+
+                <select
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                  className="input w-36"
+                  data-testid="filter-tags"
+                >
+                  <option value="">All Tags</option>
+                  {availableTags.map(tag => (
+                    <option key={tag} value={tag}>
+                      {tag.charAt(0).toUpperCase() + tag.slice(1).replace('-', ' ')}
+                    </option>
+                  ))}
+                </select>
                 
-                {(searchQuery || moduleFilter || riskFilter) && (
+                {(searchQuery || moduleFilter || riskFilter || tagFilter) && (
                   <button
                     onClick={() => {
                       setSearchQuery('');
                       setModuleFilter('');
                       setRiskFilter('');
+                      setTagFilter('');
                     }}
                     className="button button-outline px-3 py-2 flex items-center gap-1"
                     data-testid="clear-filters"
@@ -443,6 +554,55 @@ export function TestBankPage() {
                         data-testid="suite-description-input"
                       />
                     </div>
+
+                    {/* Execution Options */}
+                    <div className="space-y-3 p-3 bg-muted rounded">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Execution Options</label>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Execution Mode</label>
+                          <select
+                            value={executionMode}
+                            onChange={(e) => setExecutionMode(e.target.value as 'headed' | 'headless')}
+                            className="select w-full mt-1"
+                            data-testid="execution-mode-select"
+                          >
+                            <option value="headless">Headless</option>
+                            <option value="headed">Headed</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Execution Type</label>
+                          <select
+                            value={executionType}
+                            onChange={(e) => setExecutionType(e.target.value as 'parallel' | 'sequential')}
+                            className="select w-full mt-1"
+                            data-testid="execution-type-select"
+                          >
+                            <option value="parallel">Parallel</option>
+                            <option value="sequential">One at a time</option>
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div className="w-full">
+                        <label className="text-xs font-medium text-muted-foreground">Retry Count</label>
+                        <select
+                          value={retryCount}
+                          onChange={(e) => setRetryCount(parseInt(e.target.value) as 1 | 2 | 3)}
+                          className="select w-full mt-1"
+                          data-testid="retry-count-select"
+                        >
+                          <option value={1}>1 retry</option>
+                          <option value={2}>2 retries</option>
+                          <option value={3}>3 retries</option>
+                        </select>
+                      </div>
+                    </div>
                     
                     <div className="flex gap-2">
                       <button
@@ -477,6 +637,51 @@ export function TestBankPage() {
             </CardContent>
           </Card>
 
+          {/* Suite Presets */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Quick Suite Creation</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Create common test suites based on tags
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {suitePresets.map(preset => {
+                  const matchingTestsCount = tests.filter(test => 
+                    preset.tags.some(tag => test.tags.includes(tag))
+                  ).length;
+                  
+                  return (
+                    <div key={preset.name} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex-1">
+                        <h4 className="font-medium">{preset.name}</h4>
+                        <p className="text-xs text-muted-foreground">{preset.description}</p>
+                        <div className="flex gap-1 mt-1">
+                          {preset.tags.map(tag => (
+                            <span key={tag} className="status-badge bg-accent text-accent-foreground text-xs">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium">{matchingTestsCount} tests</div>
+                        <button
+                          onClick={() => handleCreatePresetSuite(preset)}
+                          disabled={matchingTestsCount === 0}
+                          className="button button-primary px-3 py-1 text-xs mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Create Suite
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Existing Suites */}
           <Card className="mt-6" data-testid="existing-suites-section">
             <CardHeader>
@@ -499,7 +704,7 @@ export function TestBankPage() {
                         data-testid="suite-item"
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <div>
+                          <div className="flex-1">
                             <h4 className="font-medium" data-testid="suite-name">
                               {suite.name}
                             </h4>
@@ -507,6 +712,15 @@ export function TestBankPage() {
                               <p className="text-sm text-muted-foreground">
                                 {suite.description}
                               </p>
+                            )}
+                            {suite.tags && suite.tags.length > 0 && (
+                              <div className="flex gap-1 mt-1 flex-wrap">
+                                {suite.tags.map(tag => (
+                                  <span key={tag} className="status-badge bg-accent text-accent-foreground text-xs">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
                             )}
                           </div>
                           <span 
@@ -554,7 +768,24 @@ export function TestBankPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+        </div>
+      )}
+
+      {/* Scheduler Tab Content */}
+      {activeTab === 'scheduler' && (
+        <div className="max-w-6xl mx-auto">
+          <TestRunScheduler
+            selectedSuite={selectedSuiteForScheduling}
+            onScheduleCreated={(schedule) => {
+              console.log('Schedule created:', schedule);
+              // Switch back to tests tab after scheduling
+              if (selectedTests.length === 0) {
+                setActiveTab('tests');
+              }
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

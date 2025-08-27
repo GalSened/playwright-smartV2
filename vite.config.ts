@@ -12,6 +12,15 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: true
+    host: true,
+    fs: {
+      // Allow serving files from the parent directory (tests folder)
+      allow: ['..']
+    }
+  },
+  publicDir: false, // Disable automatic public directory serving
+  define: {
+    // Add environment variable for development
+    __DEV__: true
   }
 })
