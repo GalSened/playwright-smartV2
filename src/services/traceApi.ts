@@ -8,7 +8,7 @@ import {
   StepFilters
 } from '../types/trace';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
 
 class TraceApiClient {
   private baseUrl: string;
@@ -25,6 +25,7 @@ class TraceApiClient {
     
     const defaultHeaders = {
       'Content-Type': 'application/json',
+      'X-Tenant-ID': '00000000-0000-0000-0000-000000000001', // Default tenant for development
     };
 
     const config: RequestInit = {
@@ -176,7 +177,7 @@ class TraceApiClient {
     }
   ) {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('files', file); // Backend expects 'files' array
     
     Object.entries(metadata).forEach(([key, value]) => {
       if (value !== undefined) {
