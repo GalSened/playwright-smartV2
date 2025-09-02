@@ -1,4 +1,4 @@
-// Real data adapters for Playwright Smart - No mocks, real test discovery
+// Real data adapters for QA Intelligence - No mocks, real test discovery
 import type {
   TestDefinition,
   Suite,
@@ -909,13 +909,50 @@ const RUNS_STORAGE_KEY = 'playwright-smart-runs';
 export const api = {
   // Test discovery
   async getTests(): Promise<TestDefinition[]> {
-    return await discoverPlaywrightTests();
+    try {
+      const { apiClient } = await import('@/services/apiClient');
+      const backendTests = await apiClient.getTests();
+      
+      // Ensure backendTests is an array
+      if (!Array.isArray(backendTests)) {
+        console.warn('Backend getTests() did not return an array:', backendTests);
+        return [];
+      }
+      
+      // Transform backend test format to frontend format
+      return backendTests.map(test => ({
+        id: test.id,
+        name: test.testName || test.functionName || 'Unknown Test',
+        description: test.description || null,
+        module: test.category || 'unknown',
+        filePath: test.filePath, // Include the real file path from backend
+        risk: 'med' as 'low' | 'med' | 'high',
+        tags: test.tags || [],
+        steps: [
+          `Navigate to test environment`,
+          `Execute ${test.functionName || 'test function'}`,
+          `Verify expected results`,
+          `Clean up test data`
+        ],
+        estimatedDuration: 60000 + Math.random() * 120000 // 1-3 minutes estimated
+      }));
+    } catch (error) {
+      console.error('Failed to fetch tests from backend:', error);
+      return await discoverPlaywrightTests(); // Fallback to local discovery
+    }
   },
 
   // Suite management
   async getSuites(): Promise<Suite[]> {
-    const stored = localStorage.getItem(SUITES_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    try {
+      const { apiClient } = await import('@/services/apiClient');
+      return await apiClient.getSuites();
+    } catch (error) {
+      console.error('Failed to fetch suites from backend:', error);
+      // Fallback to localStorage
+      const stored = localStorage.getItem(SUITES_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    }
   },
 
   async createSuite(suite: Omit<Suite, 'id' | 'createdAt'>): Promise<Suite> {
@@ -952,8 +989,78 @@ export const api = {
 
   // Run management  
   async getRuns(): Promise<RunRecord[]> {
-    const stored = localStorage.getItem(RUNS_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    try {
+      // Fetch from backend execution history
+      const response = await fetch('http://localhost:8081/api/execute/history');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      
+      // Transform backend execution format to frontend RunRecord format
+      return data.executions.map((exec: any) => {
+        let suiteName = 'Test Execution';
+        
+        if (exec.command.includes('tests/')) {
+          const filePath = exec.command.split('tests/')[1]?.split(' ')[0];
+          if (filePath) {
+            const fileName = filePath.split('/').pop()?.replace('.py', '');
+            const modulePath = filePath.split('/')[0]; // e.g. 'auth', 'admin'
+            
+            if (fileName && fileName.startsWith('test_')) {
+              const testName = fileName.substring(5); // Remove 'test_' prefix
+              
+              // Check if it's a UUID pattern (contains dashes in UUID format)
+              const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+              if (uuidPattern.test(testName)) {
+                // It's a UUID, use module name instead
+                const moduleDisplay = modulePath.charAt(0).toUpperCase() + modulePath.slice(1);
+                suiteName = `${moduleDisplay} Test`;
+              } else {
+                // It's a real test name
+                const displayName = testName
+                  .split('_')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+                suiteName = `${displayName} Test`;
+              }
+            } else {
+              suiteName = `Single Test (${fileName || 'Unknown'})`;
+            }
+          }
+        }
+        
+        return {
+          id: exec.executionId,
+          suiteId: exec.executionId, // Use execution ID as suite ID
+          suiteName,
+        startedAt: exec.startedAt,
+        finishedAt: exec.completedAt,
+        status: exec.status === 'completed' ? 'passed' : 'failed',
+        duration: exec.duration,
+        environment: 'devtest.comda.co.il',
+        totals: {
+          total: exec.stats.total,
+          passed: exec.stats.passed,
+          failed: exec.stats.failed,
+          skipped: exec.stats.skipped
+        },
+        steps: exec.output ? [{
+          id: `${exec.executionId}-step-1`,
+          testName: 'Test Execution',
+          status: exec.exitCode === 0 ? 'passed' : 'failed',
+          duration: exec.duration,
+          logs: exec.output.stdout ? [exec.output.stdout] : [],
+          errorMessage: exec.output.stderr || undefined
+        }] : undefined
+        };
+      });
+    } catch (error) {
+      console.error('Failed to fetch runs from backend:', error);
+      // Fallback to localStorage if backend fails
+      const stored = localStorage.getItem(RUNS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    }
   },
 
   async runSuite(suiteId: string, options?: { environment?: string; parallel?: boolean }): Promise<RunRecord> {
@@ -1078,6 +1185,20 @@ export const api = {
     ];
   },
 
+  // Get failure intelligence analytics
+  async getFailureIntelligence(): Promise<{
+    failureGroups: any[];
+    blockingFailures: any[];
+    timeline: any[];
+    patterns: any;
+  }> {
+    const response = await fetch('http://localhost:8081/api/analytics/failure-intelligence');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch failure intelligence: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
   async getDashboard(): Promise<DashboardSnapshot> {
     const [tests, suites, runs] = await Promise.all([
       this.getTests(),
@@ -1104,5 +1225,62 @@ export const api = {
         description: `${run.suiteName} ${run.status === 'passed' ? 'completed successfully' : 'completed with failures'}`
       }))
     };
+  },
+
+  // Test Execution API
+  async executeTests(options: {
+    testFiles?: string[];
+    markers?: string[];
+    browser?: string;
+    mode?: 'headed' | 'headless';
+    environment?: string;
+    retries?: number;  // Add retries parameter for suite execution
+  }): Promise<{ executionId: string; status: string; message: string }> {
+    const response = await fetch('http://localhost:8081/api/execute/pytest', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(options),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Test execution failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  },
+
+  async getExecutionStatus(executionId: string): Promise<any> {
+    const response = await fetch(`http://localhost:8081/api/execute/status/${executionId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get execution status: ${response.statusText}`);
+    }
+
+    return await response.json();
+  },
+
+  async getExecutionHistory(): Promise<any[]> {
+    const response = await fetch('http://localhost:8081/api/execute/history');
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get execution history: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.executions || [];
+  },
+
+  async cancelExecution(executionId: string): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`http://localhost:8081/api/execute/${executionId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to cancel execution: ${response.statusText}`);
+    }
+
+    return await response.json();
   }
 };

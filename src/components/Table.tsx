@@ -57,7 +57,7 @@ export function Table<TData>({
     },
     initialState: {
       pagination: {
-        pageSize: 50,
+        pageSize: 10,
       },
     },
   });

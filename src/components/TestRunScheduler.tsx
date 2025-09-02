@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
 import { Loading } from '@/components/Loading';
 import { EmptyState } from '@/components/EmptyState';
+import { SuiteSelector } from '@/components/SuiteSelector';
+import { QuickSuiteBuilder } from '@/components/QuickSuiteBuilder';
+import { TestPicker } from '@/components/TestPicker';
 import { 
   Calendar,
   Clock,
@@ -13,7 +16,12 @@ import {
   CheckCircle,
   XCircle,
   RotateCcw,
-  Globe
+  Globe,
+  Package,
+  Zap,
+  TestTube,
+  Info,
+  Settings
 } from 'lucide-react';
 import { schedulerApi } from '@/services/schedulerApi';
 import {
@@ -22,6 +30,9 @@ import {
   CreateScheduleRequest,
   ScheduleListResponse
 } from '@/types/scheduler';
+import type { Suite } from '@/app/types';
+
+type SuiteSelectionMode = 'preselected' | 'existing' | 'quick' | 'custom';
 
 interface TestRunSchedulerProps {
   selectedSuite?: {
@@ -40,10 +51,26 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const [stats, setStats] = useState<any>(null);
 
+  // Hybrid mode state
+  const [suiteSelectionMode, setSuiteSelectionMode] = useState<SuiteSelectionMode>(
+    selectedSuite ? 'preselected' : 'existing'
+  );
+  const [selectedSuiteForScheduler, setSelectedSuiteForScheduler] = useState<Suite | null>(
+    selectedSuite ? {
+      id: selectedSuite.id,
+      name: selectedSuite.name,
+      testIds: selectedSuite.testIds,
+      tags: [],
+      createdAt: new Date().toISOString(),
+      description: ''
+    } : null
+  );
+  const [showSuiteSelection, setShowSuiteSelection] = useState(!selectedSuite);
+
   // Form state
   const [formData, setFormData] = useState<ScheduleFormData>({
-    suite_id: selectedSuite?.id || '',
-    suite_name: selectedSuite?.name || '',
+    suite_id: selectedSuiteForScheduler?.id || '',
+    suite_name: selectedSuiteForScheduler?.name || '',
     date: '',
     time: '',
     timezone: 'Asia/Jerusalem',
@@ -193,6 +220,45 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
     }
   };
 
+  // Hybrid mode handlers
+  const handleSuiteSelection = (suite: Suite | null) => {
+    setSelectedSuiteForScheduler(suite);
+    if (suite) {
+      setFormData(prev => ({
+        ...prev,
+        suite_id: suite.id,
+        suite_name: suite.name
+      }));
+      setShowSuiteSelection(false);
+    }
+  };
+
+  const handleSuiteCreated = (suite: Suite) => {
+    setSelectedSuiteForScheduler(suite);
+    setFormData(prev => ({
+      ...prev,
+      suite_id: suite.id,
+      suite_name: suite.name
+    }));
+    setShowSuiteSelection(false);
+    // Automatically show the scheduling form once suite is selected
+    setShowForm(true);
+  };
+
+  const handleSuiteModeChange = (mode: SuiteSelectionMode) => {
+    setSuiteSelectionMode(mode);
+    setShowSuiteSelection(true);
+    // Clear current selection when changing modes
+    if (mode !== 'preselected') {
+      setSelectedSuiteForScheduler(null);
+      setFormData(prev => ({
+        ...prev,
+        suite_id: '',
+        suite_name: ''
+      }));
+    }
+  };
+
   // Get minimum date/time (now + 1 minute)
   const minDateTime = useMemo(() => {
     const now = new Date();
@@ -328,26 +394,179 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
         </div>
       )}
 
+      {/* Suite Selection Section */}
+      {showSuiteSelection && (
+        <Card data-testid="suite-selection-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Choose Test Suite
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Select how you want to choose tests for scheduling
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Suite Selection Mode Tabs */}
+            <div className="flex space-x-1 border-b">
+              {[
+                { key: 'existing', label: 'Existing Suites', icon: Package, desc: 'Choose from saved suites' },
+                { key: 'quick', label: 'Quick Builder', icon: Zap, desc: 'Create from tags/categories' },
+                { key: 'custom', label: 'Custom Selection', icon: TestTube, desc: 'Pick individual tests' }
+              ].map(({ key, label, icon: Icon, desc }) => (
+                <button
+                  key={key}
+                  onClick={() => handleSuiteModeChange(key as SuiteSelectionMode)}
+                  className={`px-4 py-3 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                    suiteSelectionMode === key
+                      ? 'bg-primary text-primary-foreground border-b-2 border-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  data-testid={`${key}-suite-mode`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <div className="text-left">
+                    <div>{label}</div>
+                    <div className="text-xs opacity-75">{desc}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Suite Selection Content */}
+            <div className="min-h-64">
+              {suiteSelectionMode === 'existing' && (
+                <SuiteSelector
+                  selectedSuite={selectedSuiteForScheduler}
+                  onSuiteSelect={handleSuiteSelection}
+                  className="w-full"
+                />
+              )}
+
+              {suiteSelectionMode === 'quick' && (
+                <QuickSuiteBuilder
+                  onSuiteCreated={handleSuiteCreated}
+                  className="w-full"
+                />
+              )}
+
+              {suiteSelectionMode === 'custom' && (
+                <TestPicker
+                  onSuiteCreated={handleSuiteCreated}
+                  className="w-full"
+                />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Enhanced Guidance Panels */}
+      {suiteSelectionMode === 'preselected' && !selectedSuiteForScheduler && (
+        <Card data-testid="guidance-panel" className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-blue-500 rounded-full">
+                <Info className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium text-blue-900 mb-2 text-lg">Ready to Schedule Tests?</h3>
+                <p className="text-sm text-blue-700 mb-4 leading-relaxed">
+                  To use the scheduler, you need to select tests first. Choose your preferred method:
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-blue-200">
+                    <div className="p-1 bg-blue-100 rounded">
+                      <Package className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-blue-900">Use Test Bank</div>
+                      <div className="text-xs text-blue-600">Go to Tests & Suites tab</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-blue-200">
+                    <div className="p-1 bg-blue-100 rounded">
+                      <Zap className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-blue-900">Quick Selection</div>
+                      <div className="text-xs text-blue-600">Use suite builders below</div>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSuiteSelection(true)}
+                  className="button button-primary flex items-center gap-2 shadow-md hover:shadow-lg transition-shadow"
+                  data-testid="show-suite-selection"
+                >
+                  <Settings className="h-4 w-4" />
+                  Choose Test Suite
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Success Feedback Panel */}
+      {selectedSuiteForScheduler && !showForm && (
+        <Card data-testid="success-panel" className="border-green-200 bg-gradient-to-r from-green-50 to-green-100">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-500 rounded-full">
+                <CheckCircle className="h-4 w-4 text-white" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-green-900">Suite Selected Successfully!</h4>
+                <p className="text-sm text-green-700">
+                  <strong>{selectedSuiteForScheduler.name}</strong> with {selectedSuiteForScheduler.testIds.length} tests is ready to schedule.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowForm(true)}
+                className="button button-success flex items-center gap-2 px-4 py-2"
+                data-testid="quick-schedule"
+              >
+                <Calendar className="h-4 w-4" />
+                Schedule Now
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Schedule Form */}
       <Card data-testid="schedule-form-card">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Schedule Test Run</CardTitle>
-            {!showForm && (
+            {!showForm && selectedSuiteForScheduler && (
               <button
                 onClick={() => setShowForm(true)}
                 className="button button-primary flex items-center gap-2"
                 data-testid="show-schedule-form"
-                disabled={!selectedSuite}
               >
                 <Calendar className="h-4 w-4" />
                 Schedule Run
               </button>
             )}
           </div>
+          
+          {selectedSuiteForScheduler && (
+            <div className="text-sm text-muted-foreground">
+              Suite: <strong>{selectedSuiteForScheduler.name}</strong> ({selectedSuiteForScheduler.testIds.length} tests)
+              <button
+                onClick={() => setShowSuiteSelection(true)}
+                className="ml-2 text-primary hover:text-primary/80 underline"
+                data-testid="change-suite"
+              >
+                Change
+              </button>
+            </div>
+          )}
         </CardHeader>
 
-        {showForm && (
+        {showForm && selectedSuiteForScheduler && (
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Suite Selection */}
@@ -355,12 +574,12 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
                 <label className="block text-sm font-medium mb-1">Test Suite</label>
                 <input
                   type="text"
-                  value={formData.suite_name}
+                  value={selectedSuiteForScheduler?.name || ''}
                   disabled
                   className="input bg-muted"
                   data-testid="schedule-suite-name"
                 />
-                {!selectedSuite && (
+                {!selectedSuiteForScheduler && (
                   <p className="text-sm text-muted-foreground mt-1">
                     Please select a test suite from the Test Bank to schedule
                   </p>
@@ -541,7 +760,7 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || !selectedSuite}
+                  disabled={loading || !selectedSuiteForScheduler}
                   className="button button-primary flex items-center gap-2"
                   data-testid="create-schedule"
                 >

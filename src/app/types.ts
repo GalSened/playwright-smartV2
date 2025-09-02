@@ -2,6 +2,7 @@ export interface TestDefinition {
   id: string;
   name: string;
   module: string;
+  filePath?: string; // Real file path from backend test discovery
   tags: string[];
   risk: 'low' | 'med' | 'high';
   description?: string;

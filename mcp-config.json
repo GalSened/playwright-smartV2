@@ -1,0 +1,75 @@
+{
+  "mcpServers": {
+    "playwright-regression": {
+      "command": "node",
+      "args": ["src/services/mcpPlaywrightServer.js"],
+      "env": {
+        "NODE_ENV": "development"
+      }
+    }
+  },
+  "regression": {
+    "analysisEngine": {
+      "provider": "anthropic",
+      "model": "claude-3-haiku-20240307",
+      "maxTokens": 4096,
+      "temperature": 0.1
+    },
+    "testSelection": {
+      "riskThreshold": 0.7,
+      "maxTests": 50,
+      "priorityFactors": {
+        "recentFailures": 3,
+        "codeChanges": 2,
+        "criticality": 2,
+        "flakyness": 1
+      }
+    },
+    "failureAnalysis": {
+      "generateSuggestions": true,
+      "analyzePatterns": true,
+      "detectFlaky": true,
+      "rootCauseAnalysis": true
+    },
+    "testGeneration": {
+      "enabled": true,
+      "basePatterns": ["auth", "document_workflows", "integrations"],
+      "maxNewTests": 10,
+      "coverageThreshold": 0.8
+    },
+    "reporting": {
+      "includeAiInsights": true,
+      "generateRecommendations": true,
+      "trackMetrics": true
+    }
+  },
+  "workflows": {
+    "dailyRegression": {
+      "schedule": "0 6 * * 1-5",
+      "enabled": true,
+      "smartSelection": true,
+      "maxDuration": 3600
+    },
+    "onDemandRegression": {
+      "enabled": true,
+      "smartSelection": true,
+      "includeFlaky": false
+    },
+    "continuousRegression": {
+      "enabled": false,
+      "triggerOn": ["git-push", "pr-created"],
+      "smartSelection": true
+    }
+  },
+  "integration": {
+    "testFramework": "pytest",
+    "testPath": "../tests",
+    "browsers": ["chromium", "firefox", "webkit"],
+    "executionModes": ["headed", "headless"],
+    "reporting": {
+      "htmlReports": true,
+      "junitXml": true,
+      "allureReports": true
+    }
+  }
+}

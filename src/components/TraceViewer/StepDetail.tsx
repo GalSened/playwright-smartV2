@@ -10,6 +10,7 @@ import {
   isConsoleLog,
   isNetworkLog
 } from '../../types/trace';
+import { useToast } from '../../contexts/ToastContext';
 import { formatDuration, formatFileSize, formatTimestamp } from '../../services/traceApi';
 import { 
   Clock, 
@@ -55,6 +56,7 @@ export const StepDetail: React.FC<StepDetailProps> = ({
   onDownloadArtifact,
   className = ''
 }) => {
+  const { showToast } = useToast();
   const [expandedSections, setExpandedSections] = useState<ExpandedSections>({
     artifacts: true,
     logs: step.status === 'failed',
@@ -107,9 +109,10 @@ export const StepDetail: React.FC<StepDetailProps> = ({
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      // TODO: Show toast notification
+      showToast('Copied to clipboard', 'success');
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
+      showToast('Failed to copy to clipboard', 'error');
     }
   };
 

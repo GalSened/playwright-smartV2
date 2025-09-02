@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { TraceArtifact } from '../../types/trace';
 import { formatFileSize, formatTimestamp } from '../../services/traceApi';
+import { useToast } from '../../contexts/ToastContext';
 import { 
   X, 
   ChevronLeft, 
@@ -48,6 +49,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
   onDownload,
   showInfo = true
 }) => {
+  const { showToast } = useToast();
   const modalRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -274,11 +276,12 @@ export const ImageModal: React.FC<ImageModalProps> = ({
     
     try {
       await navigator.clipboard.writeText(currentImage.fileUrl);
-      // TODO: Show toast notification
+      showToast('Image URL copied to clipboard', 'success');
     } catch (error) {
       console.error('Failed to copy URL:', error);
+      showToast('Failed to copy URL to clipboard', 'error');
     }
-  }, [currentImage]);
+  }, [currentImage, showToast]);
 
   const openInNewTab = useCallback(() => {
     if (currentImage?.fileUrl) {

@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/app/utils';
-import { BarChart3, Database, FileText, Home, TestTube } from 'lucide-react';
+import { BarChart3, Database, FileText, Home, TestTube, BrainCircuit, Upload, Wrench, Calendar } from 'lucide-react';
 import { DarkModeToggle } from './DarkModeToggle';
 
 const navItems = [
@@ -17,16 +17,34 @@ const navItems = [
     testId: 'nav-test-bank',
   },
   {
+    to: '/scheduler',
+    label: 'Scheduler',
+    icon: Calendar,
+    testId: 'nav-scheduler',
+  },
+  {
     to: '/reports',
     label: 'Reports',
     icon: FileText,
     testId: 'nav-reports',
   },
   {
-    to: '/analytics',
-    label: 'Analytics',
-    icon: BarChart3,
-    testId: 'nav-analytics',
+    to: '/self-healing',
+    label: 'Self-Healing',
+    icon: Wrench,
+    testId: 'nav-self-healing',
+  },
+  {
+    to: '/ai-assistant',
+    label: 'AI Assistant',
+    icon: BrainCircuit,
+    testId: 'nav-ai-assistant',
+  },
+  {
+    to: '/knowledge-upload',
+    label: 'Knowledge Base',
+    icon: Upload,
+    testId: 'nav-knowledge-upload',
   },
 ];
 
@@ -38,7 +56,7 @@ export function Nav() {
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <Database className="h-6 w-6 text-primary" />
-              <h1 className="text-xl font-bold">Playwright Smart</h1>
+              <h1 className="text-xl font-bold">QA Intelligence</h1>
             </div>
             <nav className="flex items-center gap-1">
               {navItems.map((item) => {

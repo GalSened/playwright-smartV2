@@ -8,7 +8,7 @@ import {
   StepFilters
 } from '../types/trace';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
 
 class TraceApiClient {
   private baseUrl: string;

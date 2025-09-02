@@ -1,8 +1,8 @@
 {
-  "name": "playwright-smart",
+  "name": "qa-intelligence",
   "version": "1.0.0",
   "private": true,
-  "description": "AI-powered test management and analytics platform",
+  "description": "QA Intelligence - Smart Test Management System",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -12,20 +12,25 @@
     "format:check": "prettier --check .",
     "mcp:smoke:dashboard": "node scripts/mcp-smoke.mjs dashboard",
     "mcp:smoke:test-bank": "node scripts/mcp-smoke.mjs test-bank",
-    "mcp:smoke:reports": "node scripts/mcp-smoke.mjs reports", 
+    "mcp:smoke:reports": "node scripts/mcp-smoke.mjs reports",
     "mcp:smoke:analytics": "node scripts/mcp-smoke.mjs analytics",
     "mcp:epu": "node scripts/mcp-epu.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.60.0",
+    "@modelcontextprotocol/sdk": "^1.17.4",
     "@tanstack/react-table": "^8.10.7",
+    "axios": "^1.11.0",
+    "clsx": "^2.0.0",
+    "lucide-react": "^0.288.0",
+    "playwright": "^1.55.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.17.0",
     "recharts": "^2.8.0",
-    "zustand": "^4.4.4",
-    "lucide-react": "^0.288.0",
-    "clsx": "^2.0.0",
-    "tailwind-merge": "^2.0.0"
+    "socket.io-client": "^4.8.1",
+    "tailwind-merge": "^2.0.0",
+    "zustand": "^4.4.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
