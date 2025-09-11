@@ -22,6 +22,10 @@ export interface Schedule {
     browser?: string;
     environment?: string;
   };
+  recurrence_type?: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+  recurrence_interval?: number;
+  recurrence_days_parsed?: string[];
+  recurrence_end_date?: string;
   minutes_until_run?: number;
   last_run?: ScheduleRun;
 }
@@ -58,6 +62,10 @@ export interface CreateScheduleRequest {
     browser?: 'chromium' | 'firefox' | 'webkit' | 'all';
     environment?: string;
   };
+  recurrence_type?: 'none' | 'daily' | 'weekly' | 'monthly' | 'custom';
+  recurrence_interval?: number;
+  recurrence_days?: string[];
+  recurrence_end_date?: string;
   run_now?: boolean;
 }
 

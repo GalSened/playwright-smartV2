@@ -76,7 +76,7 @@ export function SuiteSelector({ selectedSuite, onSuiteSelect, className }: Suite
 
       // Try to get from backend API as well
       try {
-        const response = await fetch('http://localhost:8081/api/tests/suites/list');
+        const response = await fetch('http://localhost:8083/api/tests/suites/list');
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.suites) {

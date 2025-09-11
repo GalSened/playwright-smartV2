@@ -189,12 +189,13 @@ export function TestBankPage() {
     try {
       console.log('🔄 Running test with self-healing:', { testId, testName });
       
-      const response = await fetch(`http://localhost:8081/api/tests/run/${testId}`, {
+      const response = await fetch('http://localhost:8081/api/execute/pytest', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          testFile: `tests/${testId}.py`,  // Map testId to actual test file
           executionMode: 'headed',  // Single tests default to headed mode
           retryCount: 1
         })

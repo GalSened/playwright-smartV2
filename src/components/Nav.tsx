@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/app/utils';
-import { BarChart3, Database, FileText, Home, TestTube, BrainCircuit, Upload, Wrench, Calendar } from 'lucide-react';
+import { BarChart3, Database, FileText, Home, TestTube, BrainCircuit, Upload, Wrench, Calendar, Bot } from 'lucide-react';
 import { DarkModeToggle } from './DarkModeToggle';
 
 const navItems = [
@@ -45,6 +45,12 @@ const navItems = [
     label: 'Knowledge Base',
     icon: Upload,
     testId: 'nav-knowledge-upload',
+  },
+  {
+    to: '/sub-agents',
+    label: 'Sub-Agents',
+    icon: Bot,
+    testId: 'nav-sub-agents',
   },
 ];
 

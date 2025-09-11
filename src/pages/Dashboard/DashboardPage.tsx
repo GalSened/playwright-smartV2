@@ -6,6 +6,7 @@ import { useAppStore } from '@/app/store';
 // Removed unused import
 import { EmptyState } from '@/components/EmptyState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
+import { Loading } from '@/components/Loading';
 // Removed unused chart imports
 import { getRiskColor } from '@/app/utils';
 import { 
@@ -79,8 +80,10 @@ export function DashboardPage() {
         let overallCoverage = 0;
         
         // Load real analytics data
+        const { apiUrls } = await import('@/config/api');
+        
         try {
-          const analyticsResponse = await fetch('http://localhost:8081/api/analytics/smart');
+          const analyticsResponse = await fetch(apiUrls.analyticsSmartUrl());
           if (analyticsResponse.ok) {
             const analyticsData = await analyticsResponse.json();
             healthScore = analyticsData.summary.healthScore;
@@ -151,7 +154,7 @@ export function DashboardPage() {
         try {
           // Get real test count from /api/tests/all
           console.log('📊 Fetching real tests from /api/tests/all...');
-          const testsResponse = await fetch('http://localhost:8081/api/tests/all');
+          const testsResponse = await fetch(apiUrls.testsAllUrl());
           if (testsResponse.ok) {
             const testsData = await testsResponse.json();
             totalTests = testsData.tests?.length || 0;

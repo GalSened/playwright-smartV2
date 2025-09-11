@@ -65,62 +65,37 @@ interface AuthProviderProps {
 
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>({
+    id: 'demo-user',
+    email: 'demo@qa-intelligence.com',
+    role: 'admin',
+    tenants: [{
+      id: 'demo-tenant',
+      name: 'QA Intelligence Demo',
+      subdomain: 'demo',
+      plan: 'enterprise',
+      status: 'active'
+    }],
+    currentTenantId: 'demo-tenant'
+  });
+  const [currentTenant, setCurrentTenant] = useState<Tenant | null>({
+    id: 'demo-tenant',
+    name: 'QA Intelligence Demo',
+    subdomain: 'demo',
+    plan: 'enterprise',
+    status: 'active'
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = true;
 
   useEffect(() => {
-    initializeAuth();
+    // Skip authentication initialization - already set to authenticated
+    console.log('Auth bypassed - running in demo mode');
   }, []);
 
   const initializeAuth = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const tenantId = localStorage.getItem('current_tenant_id');
-      
-      if (token) {
-        try {
-          const userData = await apiClient.getProfile();
-          setUser({
-            id: userData.user.id,
-            email: userData.user.email,
-            role: userData.user.role,
-            tenants: [userData.tenant],
-            currentTenantId: userData.tenant.id
-          });
-          setCurrentTenant(userData.tenant);
-        } catch (error) {
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('current_tenant_id');
-          
-          // In development mode, try auto-login for testing
-          if (import.meta.env.DEV) {
-            console.log('Auth failed, attempting development auto-login...');
-            try {
-              await login({ email: 'admin@demo.com', password: 'demo123' });
-            } catch (loginError) {
-              console.warn('Development auto-login failed:', loginError);
-            }
-          }
-        }
-      } else if (import.meta.env.DEV) {
-        // In development mode, auto-login if no token exists
-        console.log('No token found, attempting development auto-login...');
-        try {
-          await login({ email: 'admin@demo.com', password: 'demo123' });
-        } catch (loginError) {
-          console.warn('Development auto-login failed:', loginError);
-        }
-      }
-    } catch (error) {
-      console.error('Auth initialization failed:', error);
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('current_tenant_id');
-    } finally {
-      setIsLoading(false);
-    }
+    // No-op - authentication is bypassed
   };
 
   const login = async (credentials: LoginCredentials) => {

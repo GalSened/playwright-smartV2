@@ -449,28 +449,32 @@ class ApiClient {
 
   // Test Discovery Methods
   async getTests(): Promise<any[]> {
+    console.log('ApiClient: Starting getTests() API call');
     try {
+      console.log('ApiClient: About to make request to /api/tests/all');
       const response = await this.makeRequest<{ success: boolean; tests: any[] }>('/api/tests/all');
+      console.log('ApiClient: Request completed, response received:', { hasResponse: !!response, success: response?.success, testsLength: response?.tests?.length });
       
       // Multiple safety checks
       if (!response) {
-        console.warn('getTests: No response received');
+        console.warn('ApiClient: No response received');
         return [];
       }
       
       if (!response.success) {
-        console.warn('getTests: Response success is false', response);
+        console.warn('ApiClient: Response success is false', response);
         return [];
       }
       
       if (!Array.isArray(response.tests)) {
-        console.warn('getTests: response.tests is not an array', response.tests);
+        console.warn('ApiClient: response.tests is not an array', response.tests);
         return [];
       }
       
+      console.log('ApiClient: Returning tests array of length:', response.tests.length);
       return response.tests;
     } catch (error) {
-      console.error('getTests: API call failed', error);
+      console.error('ApiClient: API call failed', error);
       return [];
     }
   }

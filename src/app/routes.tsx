@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from './AppShell';
-import { AuthGuard } from '../components/AuthGuard';
 import { DashboardPage } from '@/pages/Dashboard/DashboardPage';
 import { TestBankPage } from '@/pages/TestBank/TestBankPage';
 import { ReportsPage } from '@/pages/Reports/ReportsPage';
@@ -13,6 +12,7 @@ import { KnowledgeUpload } from '@/pages/Knowledge/KnowledgeUpload';
 import { KnowledgeBasePage } from '@/pages/Knowledge/KnowledgeBasePage';
 import { SelfHealingDashboard } from '@/pages/SelfHealing/SelfHealingDashboard';
 import { SchedulerPage } from '@/pages/Scheduler/SchedulerPage';
+import { SubAgentsPage } from '@/pages/SubAgents/SubAgentsPage';
 
 export const router = createBrowserRouter([
   {
@@ -25,11 +25,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/',
-    element: (
-      <AuthGuard>
-        <AppShell />
-      </AuthGuard>
-    ),
+    element: <AppShell />,
     children: [
       {
         index: true,
@@ -45,7 +41,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'analytics',
-        element: <Navigate to="/" replace />,
+        element: <AnalyticsPage />,
       },
       {
         path: 'self-healing',
@@ -70,6 +66,10 @@ export const router = createBrowserRouter([
       {
         path: 'scheduler',
         element: <SchedulerPage />,
+      },
+      {
+        path: 'sub-agents',
+        element: <SubAgentsPage />,
       },
     ],
   },

@@ -21,7 +21,9 @@ import {
   Zap,
   TestTube,
   Info,
-  Settings
+  Settings,
+  AlertTriangle,
+  RotateCcw as Repeat
 } from 'lucide-react';
 import { schedulerApi } from '@/services/schedulerApi';
 import {
@@ -50,6 +52,7 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
   const [showForm, setShowForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const [stats, setStats] = useState<any>(null);
+  const [selectedSchedules, setSelectedSchedules] = useState<Set<string>>(new Set());
 
   // Hybrid mode state
   const [suiteSelectionMode, setSuiteSelectionMode] = useState<SuiteSelectionMode>(
@@ -73,10 +76,14 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
     suite_name: selectedSuiteForScheduler?.name || '',
     date: '',
     time: '',
-    timezone: 'Asia/Jerusalem',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     notes: '',
     priority: 5,
     run_now: false,
+    recurring: false,
+    recurrence_type: 'none',
+    recurrence_interval: 1,
+    recurrence_days: [] as string[],
     execution_options: {
       mode: 'headless',
       execution: 'parallel',
@@ -133,12 +140,33 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
     }
   };
 
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.date || !formData.time || !formData.suite_id) {
       setError('Please fill in all required fields');
       return;
+    }
+
+    // Validate datetime is in the future
+    if (!isDateTimeValid) {
+      setError('Schedule time must be at least 1 minute in the future');
+      return;
+    }
+
+    // Validate recurring schedule requirements
+    if (formData.recurring) {
+      if (formData.recurrence_type === 'weekly' && formData.recurrence_days.length === 0) {
+        setError('Please select at least one day for weekly recurring schedules');
+        return;
+      }
+      
+      if (formData.recurrence_type === 'custom' && (!formData.recurrence_interval || formData.recurrence_interval < 1)) {
+        setError('Please enter a valid interval for custom recurring schedules');
+        return;
+      }
     }
 
     setLoading(true);
@@ -156,7 +184,10 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
         notes: formData.notes || undefined,
         priority: formData.priority,
         execution_options: formData.execution_options,
-        run_now: formData.run_now
+        run_now: formData.run_now,
+        recurrence_type: formData.recurring ? formData.recurrence_type : undefined,
+        recurrence_interval: formData.recurring && formData.recurrence_type === 'custom' ? formData.recurrence_interval : undefined,
+        recurrence_days: formData.recurring && formData.recurrence_type === 'weekly' ? formData.recurrence_days : undefined
       };
 
       const response = await schedulerApi.createSchedule(request);
@@ -167,7 +198,11 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
         date: '',
         time: '',
         notes: '',
-        run_now: false
+        run_now: false,
+        recurring: false,
+        recurrence_type: 'none',
+        recurrence_interval: 1,
+        recurrence_days: [] as string[]
       }));
       
       setShowForm(false);
@@ -259,6 +294,53 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
     }
   };
 
+  const handleBulkAction = async (action: 'cancel' | 'delete') => {
+    if (selectedSchedules.size === 0) return;
+
+    try {
+      setIsLoading(true);
+      const selectedIds = Array.from(selectedSchedules);
+      
+      if (action === 'cancel') {
+        // Cancel selected schedules
+        const promises = selectedIds.map(id => 
+          schedulerApi.cancelSchedule(id)
+        );
+        await Promise.all(promises);
+        toast.success(`Successfully cancelled ${selectedIds.length} schedule(s)`);
+      } else if (action === 'delete') {
+        // Delete selected schedules
+        const promises = selectedIds.map(id => 
+          schedulerApi.deleteSchedule(id)
+        );
+        await Promise.all(promises);
+        toast.success(`Successfully deleted ${selectedIds.length} schedule(s)`);
+      }
+      
+      // Clear selection and refresh data
+      setSelectedSchedules(new Set());
+      await fetchSchedules();
+      
+    } catch (error) {
+      console.error(`Bulk ${action} failed:`, error);
+      toast.error(`Failed to ${action} selected schedules. Please try again.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleScheduleSelection = (scheduleId: string) => {
+    setSelectedSchedules(prev => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(scheduleId)) {
+        newSelection.delete(scheduleId);
+      } else {
+        newSelection.add(scheduleId);
+      }
+      return newSelection;
+    });
+  };
+
   // Get minimum date/time (now + 1 minute)
   const minDateTime = useMemo(() => {
     const now = new Date();
@@ -268,6 +350,45 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
       time: now.toTimeString().slice(0, 5)
     };
   }, []);
+
+  // Validate if selected datetime is in the future
+  const isDateTimeValid = useMemo(() => {
+    if (!formData.date || !formData.time) return true; // Don't show error until both are filled
+    
+    const selectedDateTime = new Date(`${formData.date}T${formData.time}:00.000`);
+    const minDate = new Date();
+    minDate.setMinutes(minDate.getMinutes() + 1);
+    
+    return selectedDateTime >= minDate;
+  }, [formData.date, formData.time]);
+
+  // Get smart time suggestions
+  const getSmartTimeSuggestions = () => {
+    const now = new Date();
+    const suggestions = [];
+    
+    // Add common maintenance window times
+    const maintenanceTimes = ['01:00', '02:00', '03:00', '04:00', '05:00'];
+    
+    // Add next hour and following hours if current time allows
+    for (let i = 1; i <= 3; i++) {
+      const futureTime = new Date(now);
+      futureTime.setHours(futureTime.getHours() + i, 0, 0, 0);
+      const timeString = futureTime.toTimeString().slice(0, 5);
+      if (!suggestions.includes(timeString)) {
+        suggestions.push(timeString);
+      }
+    }
+    
+    // Add maintenance times if not already included
+    maintenanceTimes.forEach(time => {
+      if (!suggestions.includes(time)) {
+        suggestions.push(time);
+      }
+    });
+    
+    return suggestions.slice(0, 4); // Return max 4 suggestions
+  };
 
   const getStatusIcon = (status: Schedule['status']) => {
     switch (status) {
@@ -339,6 +460,38 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
     return <span className="text-gray-600 text-sm font-medium">{days}d {hours % 24}h</span>;
   };
 
+  const getRecurrenceDescription = (schedule: Schedule) => {
+    if (!schedule.recurrence_type || schedule.recurrence_type === 'none') {
+      return null;
+    }
+
+    const time = schedule.run_at_local ? new Date(schedule.run_at_local).toTimeString().slice(0, 5) : 'scheduled time';
+    
+    switch (schedule.recurrence_type) {
+      case 'daily':
+        return `🔄 Runs daily at ${time}`;
+      
+      case 'weekly':
+        if (schedule.recurrence_days_parsed && schedule.recurrence_days_parsed.length > 0) {
+          const days = schedule.recurrence_days_parsed.join(', ');
+          return `🔄 Runs weekly on ${days} at ${time}`;
+        }
+        return `🔄 Runs weekly at ${time}`;
+      
+      case 'monthly':
+        const dayOfMonth = schedule.run_at_local ? new Date(schedule.run_at_local).getDate() : 'selected day';
+        return `🔄 Runs monthly on day ${dayOfMonth} at ${time}`;
+      
+      case 'custom':
+        const interval = schedule.recurrence_interval || 1;
+        return `🔄 Runs every ${interval} days at ${time}`;
+      
+      default:
+        return `🔄 Recurring schedule`;
+    }
+  };
+
+
   return (
     <div className="space-y-6" data-testid="test-run-scheduler">
       {/* Stats Summary */}
@@ -393,6 +546,8 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
           </Card>
         </div>
       )}
+
+
 
       {/* Suite Selection Section */}
       {showSuiteSelection && (
@@ -535,6 +690,8 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
         </Card>
       )}
 
+
+
       {/* Schedule Form */}
       <Card data-testid="schedule-form-card">
         <CardHeader>
@@ -589,16 +746,23 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
               {/* Date and Time */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Date</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {formData.recurring ? 'Start Date' : 'Date'}
+                  </label>
                   <input
                     type="date"
                     value={formData.date}
                     min={minDateTime.date}
                     onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                    className="input"
+                    className={`input ${!isDateTimeValid && formData.date && formData.time ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
                     required
                     data-testid="schedule-date"
                   />
+                  {formData.recurring && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      First run date for recurring schedule
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Time</label>
@@ -606,12 +770,47 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
                     type="time"
                     value={formData.time}
                     onChange={(e) => setFormData(prev => ({ ...prev, time: e.target.value }))}
-                    className="input"
+                    className={`input ${!isDateTimeValid && formData.date && formData.time ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
                     required
                     data-testid="schedule-time"
                   />
+                  {formData.recurring && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Time for all recurring runs
+                    </p>
+                  )}
                 </div>
               </div>
+
+              {/* Date/Time Validation Feedback */}
+              {!isDateTimeValid && formData.date && formData.time && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                  <span className="text-sm text-red-700">
+                    Schedule time must be at least 1 minute in the future
+                  </span>
+                </div>
+              )}
+
+              {/* Smart Time Suggestions */}
+              {!formData.time && (
+                <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                  <p className="text-sm font-medium text-blue-900 mb-2">🕒 Suggested Times</p>
+                  <div className="flex flex-wrap gap-2">
+                    {getSmartTimeSuggestions().map((time, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, time }))}
+                        className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200 transition-colors"
+                        data-testid={`time-suggestion-${time}`}
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Timezone */}
               <div>
@@ -631,6 +830,160 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
                   <option value="America/New_York">America/New_York (EST/EDT)</option>
                   <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
                 </select>
+              </div>
+
+              {/* Recurring Schedule Options */}
+              <div className="border-2 border-dashed border-blue-200 rounded-lg p-4 bg-blue-50/30">
+                <div className="flex items-center gap-2 mb-3">
+                  <Repeat className="h-4 w-4 text-blue-600" />
+                  <label className="text-sm font-medium text-blue-900">Recurring Schedule</label>
+                </div>
+                
+                <div className="space-y-4">
+                  {/* Enable Recurring */}
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="recurring"
+                      checked={formData.recurring}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        recurring: e.target.checked,
+                        recurrence_type: e.target.checked ? 'daily' : 'none'
+                      }))}
+                      className="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                      data-testid="schedule-recurring"
+                    />
+                    <label htmlFor="recurring" className="text-sm text-blue-800">
+                      Make this a recurring schedule
+                    </label>
+                  </div>
+
+                  {/* Recurring Options */}
+                  {formData.recurring && (
+                    <div className="space-y-3 pl-6 border-l-2 border-blue-200">
+                      <div>
+                        <label className="block text-sm font-medium text-blue-900 mb-1">Recurrence Type</label>
+                        <select
+                          value={formData.recurrence_type}
+                          onChange={(e) => setFormData(prev => ({ ...prev, recurrence_type: e.target.value }))}
+                          className="select"
+                          data-testid="schedule-recurrence-type"
+                        >
+                          <option value="daily">Daily</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                          <option value="custom">Custom Interval</option>
+                        </select>
+                      </div>
+
+                      {/* Custom Interval */}
+                      {formData.recurrence_type === 'custom' && (
+                        <div>
+                          <label className="block text-sm font-medium text-blue-900 mb-1">Interval (days)</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={formData.recurrence_interval}
+                            onChange={(e) => setFormData(prev => ({ ...prev, recurrence_interval: parseInt(e.target.value) }))}
+                            className="input w-24"
+                            data-testid="schedule-recurrence-interval"
+                          />
+                          <span className="text-sm text-muted-foreground ml-2">days</span>
+                        </div>
+                      )}
+
+                      {/* Weekly Days Selection */}
+                      {formData.recurrence_type === 'weekly' && (
+                        <div>
+                          <label className="block text-sm font-medium text-blue-900 mb-2">Days of Week</label>
+                          <div className="flex flex-wrap gap-2">
+                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+                              <label key={day} className="flex items-center space-x-1">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.recurrence_days.includes(day)}
+                                  onChange={(e) => {
+                                    const days = e.target.checked
+                                      ? [...formData.recurrence_days, day]
+                                      : formData.recurrence_days.filter(d => d !== day);
+                                    setFormData(prev => ({ ...prev, recurrence_days: days }));
+                                  }}
+                                  className="rounded text-blue-600 focus:ring-blue-500"
+                                  data-testid={`schedule-day-${day.toLowerCase()}`}
+                                />
+                                <span className="text-sm">{day.slice(0, 3)}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Quick Presets */}
+                      <div className="bg-white p-3 rounded border">
+                        <p className="text-sm font-medium text-blue-900 mb-2">Quick Presets</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({
+                              ...prev,
+                              recurring: true,
+                              recurrence_type: 'daily',
+                              time: '03:00'
+                            }))}
+                            className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200"
+                            data-testid="preset-daily-3am"
+                          >
+                            Daily at 3:00 AM
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({
+                              ...prev,
+                              recurring: true,
+                              recurrence_type: 'weekly',
+                              recurrence_days: ['Sunday'],
+                              time: '02:00'
+                            }))}
+                            className="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full hover:bg-green-200"
+                            data-testid="preset-weekly-sunday"
+                          >
+                            Weekly Sunday 2:00 AM
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({
+                              ...prev,
+                              recurring: true,
+                              recurrence_type: 'weekly',
+                              recurrence_days: ['Monday', 'Wednesday', 'Friday'],
+                              time: '01:00'
+                            }))}
+                            className="text-xs bg-purple-100 text-purple-800 px-3 py-1 rounded-full hover:bg-purple-200"
+                            data-testid="preset-weekdays"
+                          >
+                            Mon/Wed/Fri 1:00 AM
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Schedule Preview */}
+                      <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                        <p className="text-sm font-medium text-blue-900 mb-1">Schedule Preview:</p>
+                        <p className="text-sm text-blue-700">
+                          {formData.recurrence_type === 'daily' && `Every day at ${formData.time || 'selected time'}`}
+                          {formData.recurrence_type === 'weekly' && formData.recurrence_days.length > 0 && 
+                            `Every ${formData.recurrence_days.join(', ')} at ${formData.time || 'selected time'}`}
+                          {formData.recurrence_type === 'weekly' && formData.recurrence_days.length === 0 && 
+                            'Select days of the week'}
+                          {formData.recurrence_type === 'monthly' && `Monthly on day ${new Date().getDate()} at ${formData.time || 'selected time'}`}
+                          {formData.recurrence_type === 'custom' && `Every ${formData.recurrence_interval} days at ${formData.time || 'selected time'}`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Execution Options */}
@@ -733,7 +1086,10 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
                   data-testid="schedule-run-now"
                 />
                 <label htmlFor="run-now" className="text-sm">
-                  Also run immediately (in addition to scheduled time)
+                  {formData.recurring 
+                    ? 'Also run immediately (before recurring schedule starts)' 
+                    : 'Also run immediately (in addition to scheduled time)'
+                  }
                 </label>
               </div>
 
@@ -760,7 +1116,7 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || !selectedSuiteForScheduler}
+                  disabled={loading || !selectedSuiteForScheduler || !isDateTimeValid || (formData.recurring && formData.recurrence_type === 'weekly' && formData.recurrence_days.length === 0)}
                   className="button button-primary flex items-center gap-2"
                   data-testid="create-schedule"
                 >
@@ -776,7 +1132,80 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
       {/* Scheduled Runs List */}
       <Card data-testid="scheduled-runs-list">
         <CardHeader>
-          <CardTitle>Scheduled Runs</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              Scheduled Runs
+              {selectedSchedules.size > 0 && (
+                <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                  {selectedSchedules.size} selected
+                </span>
+              )}
+            </CardTitle>
+            
+            {/* Bulk Actions */}
+            {selectedSchedules.size > 0 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleBulkAction('cancel')}
+                  className="button button-outline px-3 py-2 text-sm flex items-center gap-2"
+                  data-testid="bulk-cancel"
+                  disabled={!Array.from(selectedSchedules).some(id => 
+                    schedules.find(s => s.id === id)?.status === 'scheduled'
+                  )}
+                >
+                  <Pause className="h-4 w-4" />
+                  Cancel Selected
+                </button>
+                <button
+                  onClick={() => handleBulkAction('delete')}
+                  className="button button-outline text-red-600 hover:bg-red-50 px-3 py-2 text-sm flex items-center gap-2"
+                  data-testid="bulk-delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Selected
+                </button>
+                <button
+                  onClick={() => setSelectedSchedules(new Set())}
+                  className="button button-outline px-3 py-2 text-sm"
+                  data-testid="clear-selection"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* Selection Controls */}
+          {schedules.length > 0 && (
+            <div className="flex items-center justify-between pt-2 border-t">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <button
+                  onClick={() => setSelectedSchedules(new Set(schedules.map(s => s.id)))}
+                  className="text-blue-600 hover:text-blue-800 text-sm"
+                  data-testid="select-all"
+                >
+                  Select All ({schedules.length})
+                </button>
+                <button
+                  onClick={() => setSelectedSchedules(new Set())}
+                  className="text-gray-600 hover:text-gray-800 text-sm"
+                  data-testid="select-none"
+                >
+                  Select None
+                </button>
+                <button
+                  onClick={() => {
+                    const scheduled = schedules.filter(s => s.status === 'scheduled').map(s => s.id);
+                    setSelectedSchedules(new Set(scheduled));
+                  }}
+                  className="text-orange-600 hover:text-orange-800 text-sm"
+                  data-testid="select-scheduled"
+                >
+                  Select Scheduled Only
+                </button>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {schedules.length === 0 ? (
@@ -796,10 +1225,23 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
                   {/* Header */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedSchedules.has(schedule.id)}
+                        onChange={() => toggleScheduleSelection(schedule.id)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        data-testid="schedule-checkbox"
+                      />
                       {getStatusIcon(schedule.status)}
                       <div>
                         <h4 className="font-medium" data-testid="schedule-suite-name">
                           {schedule.suite_name}
+                          {schedule.recurrence_type && schedule.recurrence_type !== 'none' && (
+                            <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              <Repeat className="h-3 w-3 mr-1" />
+                              {schedule.recurrence_type}
+                            </span>
+                          )}
                         </h4>
                         <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                           <span data-testid="schedule-datetime">
@@ -810,6 +1252,11 @@ export function TestRunScheduler({ selectedSuite, onScheduleCreated }: TestRunSc
                           </span>
                           {getTimeUntilRun(schedule)}
                         </div>
+                        {schedule.recurrence_type && schedule.recurrence_type !== 'none' && (
+                          <div className="text-xs text-purple-600 mt-1">
+                            {getRecurrenceDescription(schedule)}
+                          </div>
+                        )}
                       </div>
                     </div>
                     

@@ -910,8 +910,20 @@ export const api = {
   // Test discovery
   async getTests(): Promise<TestDefinition[]> {
     try {
-      const { apiClient } = await import('@/services/apiClient');
-      const backendTests = await apiClient.getTests();
+      // Direct fetch to backend API (bypassing apiClient due to CORS/promise issues)
+      const response = await fetch('http://localhost:8081/api/tests/all', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const backendTests = data.tests || [];
       
       // Ensure backendTests is an array
       if (!Array.isArray(backendTests)) {
@@ -923,18 +935,16 @@ export const api = {
       return backendTests.map(test => ({
         id: test.id,
         name: test.testName || test.functionName || 'Unknown Test',
-        description: test.description || null,
+        description: test.description || `Test: ${test.functionName || 'Unknown'}`,
         module: test.category || 'unknown',
-        filePath: test.filePath, // Include the real file path from backend
-        risk: 'med' as 'low' | 'med' | 'high',
+        filePath: test.filePath,
+        risk: determineRiskFromTags(test.tags) as 'low' | 'med' | 'high',
         tags: test.tags || [],
-        steps: [
-          `Navigate to test environment`,
-          `Execute ${test.functionName || 'test function'}`,
-          `Verify expected results`,
-          `Clean up test data`
-        ],
-        estimatedDuration: 60000 + Math.random() * 120000 // 1-3 minutes estimated
+        steps: generateTestStepsFromFunction(test.functionName, test.category),
+        estimatedDuration: estimateTestDurationFromTags(test.tags),
+        lastStatus: test.lastStatus,
+        lastRun: test.lastRun,
+        lastDuration: test.lastDuration
       }));
     } catch (error) {
       console.error('Failed to fetch tests from backend:', error);
@@ -1284,3 +1294,73 @@ export const api = {
     return await response.json();
   }
 };
+
+// Helper functions for test transformation
+function determineRiskFromTags(tags: string[]): 'low' | 'med' | 'high' {
+  if (!tags || tags.length === 0) return 'med';
+  
+  // High risk for critical functionality
+  if (tags.some(tag => ['auth', 'authentication', 'critical', 'security'].includes(tag.toLowerCase()))) {
+    return 'high';
+  }
+  
+  // Low risk for basic/simple tests
+  if (tags.some(tag => ['smoke', 'basic', 'simple'].includes(tag.toLowerCase()))) {
+    return 'low';
+  }
+  
+  // Medium risk by default
+  return 'med';
+}
+
+function generateTestStepsFromFunction(functionName: string, category: string): string[] {
+  const steps = [`Navigate to ${category || 'test'} environment`];
+  
+  if (functionName) {
+    if (functionName.includes('login')) {
+      steps.push('Enter credentials', 'Submit login form', 'Verify authentication success');
+    } else if (functionName.includes('upload')) {
+      steps.push('Select file to upload', 'Upload file', 'Verify upload success');
+    } else if (functionName.includes('search')) {
+      steps.push('Enter search criteria', 'Execute search', 'Verify results');
+    } else if (functionName.includes('create')) {
+      steps.push('Fill form fields', 'Submit form', 'Verify creation success');
+    } else if (functionName.includes('edit')) {
+      steps.push('Open edit form', 'Modify fields', 'Save changes', 'Verify updates');
+    } else if (functionName.includes('delete')) {
+      steps.push('Select item to delete', 'Confirm deletion', 'Verify removal');
+    } else {
+      steps.push(`Execute ${functionName.replace('test_', '').replace(/_/g, ' ')}`, 'Verify expected behavior');
+    }
+  } else {
+    steps.push('Execute test function', 'Verify expected behavior');
+  }
+  
+  steps.push('Clean up test data');
+  return steps;
+}
+
+function estimateTestDurationFromTags(tags: string[]): number {
+  if (!tags || tags.length === 0) return 45000; // 45 seconds default
+  
+  let baseDuration = 30000; // 30 seconds base
+  
+  // Adjust based on tags
+  if (tags.some(tag => ['performance', 'slow'].includes(tag.toLowerCase()))) {
+    baseDuration += 60000; // Add 1 minute for performance tests
+  }
+  
+  if (tags.some(tag => ['bulk', 'comprehensive'].includes(tag.toLowerCase()))) {
+    baseDuration += 30000; // Add 30 seconds for bulk operations
+  }
+  
+  if (tags.some(tag => ['integration', 'api'].includes(tag.toLowerCase()))) {
+    baseDuration += 20000; // Add 20 seconds for integration tests
+  }
+  
+  if (tags.some(tag => ['smoke', 'basic'].includes(tag.toLowerCase()))) {
+    baseDuration = 15000; // Keep smoke tests short
+  }
+  
+  return baseDuration + Math.random() * 15000; // Add some variance
+}

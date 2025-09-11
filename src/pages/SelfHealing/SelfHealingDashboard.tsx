@@ -69,13 +69,14 @@ export function SelfHealingDashboard() {
     setLoading(true);
     try {
       // Load stats and queue in parallel
+      const { apiUrls } = await import('@/config/api');
       const [statsResponse, queueResponse] = await Promise.all([
-        fetch('http://localhost:8081/api/healing/stats'),
-        fetch(`http://localhost:8081/api/healing/queue?${new URLSearchParams({
+        fetch(apiUrls.healingStatsUrl()),
+        fetch(apiUrls.healingQueueUrl({
           ...(filters.status && { status: filters.status }),
           ...(filters.failureType && { failure_type: filters.failureType }),
           limit: '50'
-        })}`)
+        }))
       ]);
 
       if (statsResponse.ok && queueResponse.ok) {

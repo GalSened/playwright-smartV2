@@ -93,8 +93,8 @@ export function QuickSuiteBuilder({ onSuiteCreated, className }: QuickSuiteBuild
 
     try {
       const [categoriesRes, tagsRes] = await Promise.all([
-        fetch('http://localhost:8081/api/tests/categories/list'),
-        fetch('http://localhost:8081/api/tests/tags/list')
+        fetch('http://localhost:8083/api/tests/categories/list'),
+        fetch('http://localhost:8083/api/tests/tags/list')
       ]);
 
       if (categoriesRes.ok) {
@@ -184,7 +184,7 @@ export function QuickSuiteBuilder({ onSuiteCreated, className }: QuickSuiteBuild
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8081/api/tests/suites/quick', {
+      const response = await fetch('http://localhost:8083/api/tests/suites/quick', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

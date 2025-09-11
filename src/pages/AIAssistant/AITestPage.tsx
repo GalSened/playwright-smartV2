@@ -39,7 +39,7 @@ export const AITestPage = () => {
   const testConnection = async () => {
     setConnectionStatus({ loading: true, data: null });
     try {
-      const response = await fetch('http://localhost:8081/api/ai/test', {
+      const response = await fetch('http://localhost:8083/api/ai/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -57,7 +57,7 @@ export const AITestPage = () => {
   const testIngestion = async () => {
     setIngestionStatus({ loading: true, data: null });
     try {
-      const response = await fetch('http://localhost:8081/api/ai/ingest', {
+      const response = await fetch('http://localhost:8083/api/ai/ingest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -83,7 +83,7 @@ export const AITestPage = () => {
   const testSearch = async () => {
     setSearchStatus({ loading: true, data: null });
     try {
-      const response = await fetch('http://localhost:8081/api/ai/search', {
+      const response = await fetch('http://localhost:8083/api/ai/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -105,7 +105,7 @@ export const AITestPage = () => {
   const testChat = async () => {
     setChatStatus({ loading: true, data: null });
     try {
-      const response = await fetch('http://localhost:8081/api/ai/chat', {
+      const response = await fetch('http://localhost:8083/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -56,7 +56,7 @@ export function AnalyticsPage() {
         console.log('Loading REAL analytics from backend API...');
         
         // Call the new real analytics API
-        const response = await fetch('http://localhost:8081/api/analytics/smart');
+        const response = await fetch('http://localhost:8083/api/analytics/smart');
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }

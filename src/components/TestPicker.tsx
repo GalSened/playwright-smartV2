@@ -45,7 +45,7 @@ export function TestPicker({ onSuiteCreated, className }: TestPickerProps) {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8081/api/tests/all?limit=500');
+      const response = await fetch('http://localhost:8083/api/tests/all?limit=500');
       const data = await response.json();
 
       if (response.ok && data.success) {
