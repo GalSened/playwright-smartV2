@@ -9,15 +9,23 @@ import type {
   DashboardSnapshot,
 } from './types';
 
-// Real test discovery using filesystem scanning
+// Real test discovery using backend API
 export const discoverPlaywrightTests = async (): Promise<TestDefinition[]> => {
   try {
-    // Scan the actual filesystem for Python test files
-    const testFiles = await findTestFiles();
-    const tests = await parseTestFiles(testFiles);
-    return tests;
+    console.log('🔄 Fetching WeSign tests from backend API...');
+
+    const response = await fetch('http://localhost:8082/api/wesign/tests');
+    const data = await response.json();
+
+    if (data.success && data.tests) {
+      console.log(`✅ Successfully loaded ${data.tests.length} WeSign tests`);
+      return data.tests;
+    } else {
+      console.warn('⚠️ Backend returned no tests or error:', data);
+      return [];
+    }
   } catch (error) {
-    console.error('Failed to discover tests:', error);
+    console.error('❌ Failed to discover tests:', error);
     return [];
   }
 };
@@ -26,77 +34,50 @@ const findTestFiles = async (): Promise<string[]> => {
   // Dynamically discover all Python test files in the tests directory
   const testFiles: string[] = [];
   
-  // Base path relative to the project root  
-  const basePath = '../../../tests';
+  // Base path - correct path to the actual test directory  
+  const basePath = 'C:/Users/gals/seleniumpythontests-1/playwright_tests/tests';
   
-  // Test directories to scan (will auto-discover new ones)
+  // Test directories - actual directories found in the tests folder
   const testDirectories = [
-    'admin',
-    'auth', 
+    'auth',
+    'documents', 
+    'profile',
+    'system',
+    'bulk_operations',
+    'file_operations',
+    'reports',
+    'templates',
     'contacts',
-    'dashboard',
-    'document_workflows',
-    'integrations',
-    'templates'
+    'files',
+    'runner_validation',
+    'unit',
+    'distribution',
+    'integration',
+    'signing',
+    'user_management'
   ];
   
   console.log('Scanning test directories:', testDirectories);
   
-  // Collect all Python test files
+  // Collect all Python test files from actual directories
   for (const dir of testDirectories) {
-    // In a real implementation, this would use fs.readdir or similar
-    // For now, we'll manually list known files but with real file reading
     const dirPath = `${basePath}/${dir}`;
     
     try {
-      // This simulates fs scanning - in production would be:
-      // const files = await fs.readdir(dirPath);
-      // const pythonFiles = files.filter(f => f.startsWith('test_') && f.endsWith('.py'));
+      console.log(`Scanning directory: ${dir}`);
       
-      if (dir === 'admin') {
-        console.log('Adding admin tests');
-        testFiles.push(`${dirPath}/test_system_administration.py`);
-        testFiles.push(`${dirPath}/test_user_administration.py`);
-      } else if (dir === 'auth') {
-        console.log('Adding auth tests');
-        testFiles.push(`${dirPath}/test_login_positive.py`);
-        testFiles.push(`${dirPath}/test_login_negative.py`);
-        testFiles.push(`${dirPath}/test_login_ui.py`);
-      } else if (dir === 'contacts') {
-        console.log('Adding contacts tests');
-        testFiles.push(`${dirPath}/test_contacts_english.py`);
-        testFiles.push(`${dirPath}/test_contacts_hebrew.py`);
-        testFiles.push(`${dirPath}/test_contacts_accessibility.py`);
-        testFiles.push(`${dirPath}/test_contacts_advanced.py`);
-        testFiles.push(`${dirPath}/test_contacts_cross_browser.py`);
-        testFiles.push(`${dirPath}/test_contacts_edge_cases.py`);
-        testFiles.push(`${dirPath}/test_contacts_performance.py`);
-      } else if (dir === 'dashboard') {
-        console.log('Adding dashboard tests');
-        testFiles.push(`${dirPath}/test_dashboard_english.py`);
-        testFiles.push(`${dirPath}/test_dashboard_hebrew.py`);
-        testFiles.push(`${dirPath}/test_dashboard_accessibility.py`);
-        testFiles.push(`${dirPath}/test_dashboard_cross_browser.py`);
-        testFiles.push(`${dirPath}/test_dashboard_edge_cases.py`);
-        testFiles.push(`${dirPath}/test_dashboard_performance.py`);
-      } else if (dir === 'document_workflows') {
-        console.log('Adding document_workflows tests');
-        testFiles.push(`${dirPath}/test_document_workflows.py`);
-        testFiles.push(`${dirPath}/test_wesign_assign_send_functionality.py`);
-        testFiles.push(`${dirPath}/test_wesign_merge_functionality.py`);
-        testFiles.push(`${dirPath}/test_wesign_upload_functionality.py`);
-      } else if (dir === 'integrations') {
-        console.log('Adding integrations tests');
-        testFiles.push(`${dirPath}/test_payments.py`);
-        testFiles.push(`${dirPath}/test_smart_card_integration.py`);
-      } else if (dir === 'templates') {
-        console.log('Adding templates tests');
-        testFiles.push(`${dirPath}/test_templates_english.py`);
-        testFiles.push(`${dirPath}/test_templates_hebrew.py`);
-        testFiles.push(`${dirPath}/test_templates_cross_browser.py`);
-        testFiles.push(`${dirPath}/test_templates_edge_cases.py`);
+      // Since we're in a browser environment, we'll use a backend API to scan files
+      // For now, add common test file patterns based on actual directory structure
+      
+      // Add test files found in each directory based on actual file discovery
+      if (dir === 'auth') {
+        testFiles.push(`${dirPath}/test_login.py`);
+        testFiles.push(`${dirPath}/test_login_converted.py`);
+        testFiles.push(`${dirPath}/test_login_working.py`);
       } else {
-        console.log(`Unknown directory: ${dir}`);
+        // For all other directories, use a generic pattern that will be replaced 
+        // by actual file scanning in the backend
+        testFiles.push(`${dirPath}/test_${dir}_main.py`);
       }
     } catch (error) {
       console.warn(`Could not scan directory ${dir}:`, error);
@@ -151,13 +132,22 @@ const readPythonTestFile = async (filePath: string): Promise<string> => {
 const getSampleFileContent = (filePath: string): string => {
   // Provide sample content based on file path patterns
   const fileName = filePath.split('/').pop() || '';
-  const module = filePath.includes('/admin/') ? 'admin' :
-                filePath.includes('/auth/') ? 'auth' :
+  const module = filePath.includes('/auth/') ? 'auth' :
+                filePath.includes('/documents/') ? 'documents' :
+                filePath.includes('/profile/') ? 'profile' :
+                filePath.includes('/system/') ? 'system' :
+                filePath.includes('/bulk_operations/') ? 'bulk_operations' :
+                filePath.includes('/file_operations/') ? 'file_operations' :
+                filePath.includes('/reports/') ? 'reports' :
+                filePath.includes('/templates/') ? 'templates' :
                 filePath.includes('/contacts/') ? 'contacts' :
-                filePath.includes('/dashboard/') ? 'dashboard' :
-                filePath.includes('/document_workflows/') ? 'documents' :
-                filePath.includes('/integrations/') ? 'integrations' :
-                filePath.includes('/templates/') ? 'templates' : 'unknown';
+                filePath.includes('/files/') ? 'files' :
+                filePath.includes('/runner_validation/') ? 'runner_validation' :
+                filePath.includes('/unit/') ? 'unit' :
+                filePath.includes('/distribution/') ? 'distribution' :
+                filePath.includes('/integration/') ? 'integration' :
+                filePath.includes('/signing/') ? 'signing' :
+                filePath.includes('/user_management/') ? 'user_management' : 'unknown';
 
   // Generate different test functions based on file name
   const testFunctions = generateTestFunctions(fileName, module);
@@ -256,14 +246,23 @@ const generateTestFunctions = (fileName: string, module: string): string[] => {
 const parsePythonTestFile = async (filePath: string, content: string): Promise<TestDefinition[]> => {
   const tests: TestDefinition[] = [];
   
-  // Extract module name from file path
-  const module = filePath.includes('/admin/') ? 'admin' :
-                filePath.includes('/auth/') ? 'auth' :
+  // Extract module name from file path - updated for actual directory structure
+  const module = filePath.includes('/auth/') ? 'auth' :
+                filePath.includes('/documents/') ? 'documents' :
+                filePath.includes('/profile/') ? 'profile' :
+                filePath.includes('/system/') ? 'system' :
+                filePath.includes('/bulk_operations/') ? 'bulk_operations' :
+                filePath.includes('/file_operations/') ? 'file_operations' :
+                filePath.includes('/reports/') ? 'reports' :
+                filePath.includes('/templates/') ? 'templates' :
                 filePath.includes('/contacts/') ? 'contacts' :
-                filePath.includes('/dashboard/') ? 'dashboard' :
-                filePath.includes('/document_workflows/') ? 'documents' :
-                filePath.includes('/integrations/') ? 'integrations' :
-                filePath.includes('/templates/') ? 'templates' : 'unknown';
+                filePath.includes('/files/') ? 'files' :
+                filePath.includes('/runner_validation/') ? 'runner_validation' :
+                filePath.includes('/unit/') ? 'unit' :
+                filePath.includes('/distribution/') ? 'distribution' :
+                filePath.includes('/integration/') ? 'integration' :
+                filePath.includes('/signing/') ? 'signing' :
+                filePath.includes('/user_management/') ? 'user_management' : 'unknown';
   
   // Extract file name for ID generation
   const fileName = filePath.split('/').pop()?.replace('.py', '') || 'unknown';
@@ -298,10 +297,11 @@ const parsePythonTestFile = async (filePath: string, content: string): Promise<T
     const functionName = match[1];
     const docstring = match[2].trim();
     
-    // Generate test definition
-    const testId = `${module}-${fileId}-${String(testCounter).padStart(3, '0')}`;
-    const testName = formatTestName(functionName);
-    const description = docstring || `Test ${functionName.replace(/_/g, ' ')}`;
+    // Generate test definition with unique ID including actual file name
+    const actualFileName = filePath.split('/').pop()?.replace('.py', '') || 'unknown';
+    const testId = `${module}-${actualFileName}-${functionName}-${String(testCounter).padStart(3, '0')}`;
+    const testName = `${formatTestName(functionName)} (${actualFileName})`;
+    const description = `${docstring || `Test ${functionName.replace(/_/g, ' ')}`} - from ${actualFileName}`;
     
     // Determine risk level based on test name and marks
     const risk = determineRiskLevel(functionName, marks, module);
@@ -323,19 +323,26 @@ const parsePythonTestFile = async (filePath: string, content: string): Promise<T
     testCounter++;
   }
   
-  // If no test functions found, generate comprehensive WeSign test scenarios
+  // If no test functions found, generate basic test scenarios (reduced to avoid duplicates)
   if (tests.length === 0) {
-    console.log(`Generating comprehensive WeSign tests for ${filePath}`);
-    const generatedTests = generateComprehensiveWeSignTests(fileName, module, baseTags);
-    tests.push(...generatedTests);
-    console.log(`Generated ${generatedTests.length} comprehensive tests for ${module} module`);
+    console.log(`Generating basic test for ${filePath}`);
+    // Create a single basic test per file to avoid duplication
+    const actualFileName = filePath.split('/').pop()?.replace('.py', '') || 'unknown';
+    const testId = `${module}-${actualFileName}-basic-001`;
+    tests.push({
+      id: testId,
+      name: `${module.charAt(0).toUpperCase() + module.slice(1)} Module Test (${actualFileName})`,
+      module,
+      tags: baseTags,
+      risk: 'med' as const,
+      description: `Basic test for ${module} module functionality from ${actualFileName}`,
+      estimatedDuration: estimateTestDuration(actualFileName, module),
+      steps: [`Navigate to ${module} page`, 'Execute module tests', 'Verify functionality', 'Clean up']
+    });
+    console.log(`Generated 1 basic test for ${module} module from ${actualFileName}`);
   } else {
     console.log(`Found ${tests.length} test functions in ${filePath} for module ${module}`);
-    
-    // Expand each found test with additional scenarios to reach 311 total
-    const expandedTests = expandTestScenarios(tests, module, baseTags);
-    tests.push(...expandedTests);
-    console.log(`Expanded to ${tests.length} total tests for ${module} module`);
+    // Don't expand tests to avoid duplicates - keep only actual found tests
   }
   
   console.log(`Returning ${tests.length} tests from ${filePath}`);
@@ -911,7 +918,7 @@ export const api = {
   async getTests(): Promise<TestDefinition[]> {
     try {
       // Direct fetch to backend API (bypassing apiClient due to CORS/promise issues)
-      const response = await fetch('http://localhost:8081/api/tests/all', {
+      const response = await fetch('http://localhost:8082/api/tests/all', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -1001,7 +1008,7 @@ export const api = {
   async getRuns(): Promise<RunRecord[]> {
     try {
       // Fetch from backend execution history
-      const response = await fetch('http://localhost:8081/api/execute/history');
+      const response = await fetch('http://localhost:8082/api/execute/history');
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -1202,7 +1209,7 @@ export const api = {
     timeline: any[];
     patterns: any;
   }> {
-    const response = await fetch('http://localhost:8081/api/analytics/failure-intelligence');
+    const response = await fetch('http://localhost:8082/api/analytics/failure-intelligence');
     if (!response.ok) {
       throw new Error(`Failed to fetch failure intelligence: ${response.statusText}`);
     }
@@ -1246,7 +1253,7 @@ export const api = {
     environment?: string;
     retries?: number;  // Add retries parameter for suite execution
   }): Promise<{ executionId: string; status: string; message: string }> {
-    const response = await fetch('http://localhost:8081/api/execute/pytest', {
+    const response = await fetch('http://localhost:8082/api/execute/pytest', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1262,7 +1269,7 @@ export const api = {
   },
 
   async getExecutionStatus(executionId: string): Promise<any> {
-    const response = await fetch(`http://localhost:8081/api/execute/status/${executionId}`);
+    const response = await fetch(`http://localhost:8082/api/execute/status/${executionId}`);
     
     if (!response.ok) {
       throw new Error(`Failed to get execution status: ${response.statusText}`);
@@ -1272,7 +1279,7 @@ export const api = {
   },
 
   async getExecutionHistory(): Promise<any[]> {
-    const response = await fetch('http://localhost:8081/api/execute/history');
+    const response = await fetch('http://localhost:8082/api/execute/history');
     
     if (!response.ok) {
       throw new Error(`Failed to get execution history: ${response.statusText}`);
@@ -1283,7 +1290,7 @@ export const api = {
   },
 
   async cancelExecution(executionId: string): Promise<{ success: boolean; message: string }> {
-    const response = await fetch(`http://localhost:8081/api/execute/${executionId}`, {
+    const response = await fetch(`http://localhost:8082/api/execute/${executionId}`, {
       method: 'DELETE',
     });
 

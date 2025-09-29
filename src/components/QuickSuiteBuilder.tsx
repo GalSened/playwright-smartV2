@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Tag, Folder, Zap, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import type { Suite } from '@/app/types';
+import { buildApiUrl } from '@/config/api';
 
 interface QuickSuiteBuilderProps {
   onSuiteCreated: (suite: Suite) => void;
@@ -28,38 +29,38 @@ const PRESET_SUITES: PresetSuite[] = [
   {
     name: 'Smoke Test Suite',
     description: 'Critical functionality tests for quick validation',
-    tags: ['smoke'],
-    categories: []
+    tags: [],
+    categories: ['auth', 'documents']
   },
   {
     name: 'Regression Suite',
     description: 'Comprehensive testing across all modules',
-    tags: ['regression'],
-    categories: []
+    tags: [],
+    categories: ['documents', 'contacts', 'reports', 'auth']
   },
   {
     name: 'Authentication Suite',
     description: 'Complete authentication and login tests',
-    tags: ['auth', 'login'],
+    tags: [],
     categories: ['auth']
   },
   {
     name: 'Dashboard Suite',
     description: 'All dashboard functionality tests',
-    tags: ['dashboard'],
-    categories: ['dashboard']
+    tags: [],
+    categories: ['documents', 'reports']
   },
   {
     name: 'Performance Suite',
     description: 'Performance and load testing',
-    tags: ['performance', 'slow'],
-    categories: []
+    tags: [],
+    categories: ['wesign', 'integration']
   },
   {
     name: 'Critical Path Suite',
     description: 'Business-critical user journeys',
-    tags: ['smoke', 'positive'],
-    categories: ['auth', 'dashboard']
+    tags: [],
+    categories: ['auth', 'documents']
   }
 ];
 
@@ -93,8 +94,8 @@ export function QuickSuiteBuilder({ onSuiteCreated, className }: QuickSuiteBuild
 
     try {
       const [categoriesRes, tagsRes] = await Promise.all([
-        fetch('http://localhost:8083/api/tests/categories/list'),
-        fetch('http://localhost:8083/api/tests/tags/list')
+        fetch(buildApiUrl('/api/tests/categories/list')),
+        fetch(buildApiUrl('/api/tests/tags/list'))
       ]);
 
       if (categoriesRes.ok) {
@@ -184,7 +185,7 @@ export function QuickSuiteBuilder({ onSuiteCreated, className }: QuickSuiteBuild
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8083/api/tests/suites/quick', {
+      const response = await fetch(buildApiUrl('/api/tests/suites/quick'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

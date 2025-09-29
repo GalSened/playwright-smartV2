@@ -82,7 +82,7 @@ export function ReportsPage() {
       if (showAnalytics) {
         setAnalyticsLoading(true);
         try {
-          const response = await fetch('http://localhost:8081/api/analytics/smart');
+          const response = await fetch('http://localhost:8082/api/analytics/smart');
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
           }
@@ -104,7 +104,7 @@ export function ReportsPage() {
       // Load recent executions from backend
       setReportsLoading(true);
       try {
-        const response = await fetch('http://localhost:8081/api/reports/summary');
+        const response = await fetch('http://localhost:8082/api/reports/summary');
         if (response.ok) {
           const data = await response.json();
           setRecentExecutions(data.executions || []);
@@ -243,7 +243,7 @@ export function ReportsPage() {
 
   // Handle viewing Allure report
   const handleViewAllureReport = (runId: string) => {
-    const reportUrl = `http://localhost:8081/api/reports/allure/${runId}`;
+    const reportUrl = `http://localhost:8082/api/reports/allure/${runId}`;
     window.open(reportUrl, '_blank');
   };
 
@@ -256,7 +256,7 @@ export function ReportsPage() {
       setRuns(runsData);
       
       // Reload recent executions
-      const response = await fetch('http://localhost:8081/api/reports/summary');
+      const response = await fetch('http://localhost:8082/api/reports/summary');
       if (response.ok) {
         const data = await response.json();
         setRecentExecutions(data.executions || []);
@@ -714,40 +714,6 @@ export function ReportsPage() {
             </Card>
           </div>
 
-          {/* Analytics Insights */}
-          {analyticsData.risks && analyticsData.risks.length > 0 && (
-            <Card className="mt-4" data-testid="analytics-insights">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-purple-500" />
-                  Key Insights
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {analyticsData.risks.slice(0, 4).map((risk: any, index: number) => (
-                    <div key={index} className="p-3 bg-muted/50 rounded-lg" data-testid="insight-item">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`status-badge ${
-                              risk.level === 'critical' ? 'bg-red-100 text-red-800' :
-                              risk.level === 'high' ? 'bg-orange-100 text-orange-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            } text-xs`}>
-                              {risk.level.toUpperCase()}
-                            </span>
-                          </div>
-                          <p className="text-sm font-medium">{risk.area}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{risk.description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       )}
 

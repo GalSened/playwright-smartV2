@@ -2,7 +2,7 @@
 // This ensures all frontend components use the correct backend port
 
 const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081',
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8082',
   ENDPOINTS: {
     // Core API endpoints
     ANALYTICS: '/api/analytics',

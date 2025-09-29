@@ -13,6 +13,7 @@ import { KnowledgeBasePage } from '@/pages/Knowledge/KnowledgeBasePage';
 import { SelfHealingDashboard } from '@/pages/SelfHealing/SelfHealingDashboard';
 import { SchedulerPage } from '@/pages/Scheduler/SchedulerPage';
 import { SubAgentsPage } from '@/pages/SubAgents/SubAgentsPage';
+import { WeSignPage } from '@/pages/WeSign/WeSignPage';
 
 export const router = createBrowserRouter([
   {
@@ -70,6 +71,10 @@ export const router = createBrowserRouter([
       {
         path: 'sub-agents',
         element: <SubAgentsPage />,
+      },
+      {
+        path: 'wesign',
+        element: <WeSignPage />,
       },
     ],
   },

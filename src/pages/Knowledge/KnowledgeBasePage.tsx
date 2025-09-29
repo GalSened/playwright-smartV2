@@ -30,7 +30,7 @@ export function KnowledgeBasePage() {
 
   const loadDocuments = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/knowledge/list');
+      const response = await fetch('http://localhost:8082/api/knowledge/list');
       const data = await response.json();
       setDocuments(data || []);
     } catch (error) {
@@ -41,7 +41,7 @@ export function KnowledgeBasePage() {
 
   const loadStats = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/knowledge/stats');
+      const response = await fetch('http://localhost:8082/api/knowledge/stats');
       const data = await response.json();
       
       if (data.success !== false) {
@@ -65,7 +65,7 @@ export function KnowledgeBasePage() {
     if (!confirm('Delete this document and all its chunks?')) return;
 
     try {
-      await fetch(`http://localhost:8081/api/knowledge/${encodeURIComponent(source)}`, {
+      await fetch(`http://localhost:8082/api/knowledge/${encodeURIComponent(source)}`, {
         method: 'DELETE'
       });
 
@@ -88,7 +88,7 @@ export function KnowledgeBasePage() {
     }
 
     try {
-      const response = await fetch('http://localhost:8081/api/knowledge/upload', {
+      const response = await fetch('http://localhost:8082/api/knowledge/upload', {
         method: 'POST',
         body: formData
       });
@@ -114,7 +114,7 @@ export function KnowledgeBasePage() {
   const extractFromWeSign = async () => {
     setExtracting(true);
     try {
-      const response = await fetch('http://localhost:8081/api/knowledge/extract', {
+      const response = await fetch('http://localhost:8082/api/knowledge/extract', {
         method: 'POST'
       });
       

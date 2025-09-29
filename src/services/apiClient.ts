@@ -98,7 +98,7 @@ class ApiClient {
   private socket: Socket | null = null;
 
   constructor() {
-    this.baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+    this.baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8082';
     this.token = localStorage.getItem('auth_token');
     
     // Initialize real-time connection

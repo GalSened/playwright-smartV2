@@ -97,7 +97,7 @@ export function JiraIntegration({ className }: JiraIntegrationProps) {
 
   const loadConfig = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/jira/config');
+      const response = await fetch('http://localhost:8082/api/jira/config');
       if (response.ok) {
         const data = await response.json();
         setConfig(data.config);
@@ -109,7 +109,7 @@ export function JiraIntegration({ className }: JiraIntegrationProps) {
 
   const loadHealth = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/jira/health');
+      const response = await fetch('http://localhost:8082/api/jira/health');
       if (response.ok) {
         const data = await response.json();
         setHealth(data);
@@ -121,7 +121,7 @@ export function JiraIntegration({ className }: JiraIntegrationProps) {
 
   const loadMappings = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/jira/mappings?limit=10');
+      const response = await fetch('http://localhost:8082/api/jira/mappings?limit=10');
       if (response.ok) {
         const data = await response.json();
         setMappings(data.mappings);
@@ -136,7 +136,7 @@ export function JiraIntegration({ className }: JiraIntegrationProps) {
     setConfiguring(true);
     
     try {
-      const response = await fetch('http://localhost:8081/api/jira/config', {
+      const response = await fetch('http://localhost:8082/api/jira/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -161,7 +161,7 @@ export function JiraIntegration({ className }: JiraIntegrationProps) {
 
   const testConnection = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/jira/test-connection', {
+      const response = await fetch('http://localhost:8082/api/jira/test-connection', {
         method: 'POST'
       });
       if (response.ok) {
@@ -191,7 +191,7 @@ export function JiraIntegration({ className }: JiraIntegrationProps) {
     };
 
     try {
-      const response = await fetch('http://localhost:8081/api/jira/issues', {
+      const response = await fetch('http://localhost:8082/api/jira/issues', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, CheckCircle, Circle, Filter, X, TestTube, Clock, Tag } from 'lucide-react';
 import type { Suite, TestDefinition } from '@/app/types';
+import { buildApiUrl } from '@/config/api';
 
 interface TestPickerProps {
   onSuiteCreated: (suite: Suite) => void;
@@ -45,7 +46,7 @@ export function TestPicker({ onSuiteCreated, className }: TestPickerProps) {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8083/api/tests/all?limit=500');
+      const response = await fetch(buildApiUrl('/api/tests/all?limit=500'));
       const data = await response.json();
 
       if (response.ok && data.success) {

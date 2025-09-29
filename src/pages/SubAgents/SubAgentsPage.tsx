@@ -123,7 +123,7 @@ export function SubAgentsPage() {
   // Load agent status
   const loadAgentStatus = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/sub-agents/status');
+      const response = await fetch('http://localhost:8082/api/sub-agents/status');
       if (response.ok) {
         const data = await response.json();
         setAgentStatus(data.data);
@@ -137,7 +137,7 @@ export function SubAgentsPage() {
   // Load workflow templates
   const loadTemplates = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/sub-agents/workflow-templates');
+      const response = await fetch('http://localhost:8082/api/sub-agents/workflow-templates');
       if (response.ok) {
         const data = await response.json();
         setTemplates(data.data.templates);
@@ -150,7 +150,7 @@ export function SubAgentsPage() {
   // Load real test data
   const loadTestData = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/sub-agents/test-data?limit=10');
+      const response = await fetch('http://localhost:8082/api/sub-agents/test-data?limit=10');
       if (response.ok) {
         const data = await response.json();
         setTestData(data.data);
@@ -163,7 +163,7 @@ export function SubAgentsPage() {
   // Load test analytics
   const loadAnalytics = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/sub-agents/test-data/analytics');
+      const response = await fetch('http://localhost:8082/api/sub-agents/test-data/analytics');
       if (response.ok) {
         const data = await response.json();
         setAnalytics(data.data);
@@ -176,7 +176,7 @@ export function SubAgentsPage() {
   // Load real metrics data
   const loadMetrics = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/sub-agents/metrics');
+      const response = await fetch('http://localhost:8082/api/sub-agents/metrics');
       if (response.ok) {
         const data = await response.json();
         setMetrics(data.data);
@@ -190,7 +190,7 @@ export function SubAgentsPage() {
   const performTestScan = async () => {
     setScanning(true);
     try {
-      const response = await fetch('http://localhost:8081/api/sub-agents/test-data/scan', {
+      const response = await fetch('http://localhost:8082/api/sub-agents/test-data/scan', {
         method: 'POST'
       });
       if (response.ok) {
@@ -211,7 +211,7 @@ export function SubAgentsPage() {
     setExecuting(templateId);
     try {
       const template = templates.find(t => t.id === templateId);
-      const response = await fetch(`http://localhost:8081/api/sub-agents/execute-template/${templateId}`, {
+      const response = await fetch(`http://localhost:8082/api/sub-agents/execute-template/${templateId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

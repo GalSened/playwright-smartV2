@@ -1,5 +1,9 @@
 # Playwright Smart
 
+> ⚠️ **DEPRECATED**: This version is deprecated. Please use the merged version at `apps/frontend/dashboard/` which includes MCP integration and latest features.
+>
+> **Official Frontend**: `apps/frontend/dashboard/` runs on http://localhost:3001
+
 AI-powered test management and analytics platform for comprehensive test suite orchestration, execution reporting, and coverage analysis.
 
 ## 🎯 Overview

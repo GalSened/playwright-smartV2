@@ -1,20 +1,32 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/Card';
-import { 
-  Brain, 
-  Send, 
-  CheckCircle, 
-  AlertCircle, 
-  Loader2, 
-  Database, 
-  MessageSquare, 
-  Zap, 
+import {
+  Brain,
+  Send,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  Database,
+  MessageSquare,
+  Zap,
   Copy,
   Code,
   Settings,
   Play,
-  Clock
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Target,
+  Lightbulb,
+  HelpCircle,
+  Network,
+  Timer,
+  BarChart3,
+  BookOpen,
+  FileText,
+  Tag
 } from 'lucide-react';
+import { apiUrls } from '@/config/api';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -22,6 +34,16 @@ interface Message {
   timestamp: Date;
   code?: string;
   metadata?: any;
+  // Enhanced RAG data
+  ragData?: {
+    confidence?: number;
+    sources?: number;
+    executionTime?: number;
+    recommendations?: string[];
+    followUpQuestions?: string[];
+    relatedTopics?: string[];
+    contextSummary?: string;
+  };
 }
 
 interface KnowledgeStatus {
@@ -73,6 +95,7 @@ export function AIAssistantPage() {
   const [conversation, setConversation] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [knowledgeStatus, setKnowledgeStatus] = useState<KnowledgeStatus | null>(null);
+  const [expandedMessages, setExpandedMessages] = useState<Set<number>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Test Generator state
@@ -116,7 +139,7 @@ export function AIAssistantPage() {
 
   const checkKnowledgeBase = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/ai/stats');
+      const response = await fetch(apiUrls.aiStatsUrl());
       const data = await response.json();
       setKnowledgeStatus(data);
     } catch (error) {
@@ -126,7 +149,7 @@ export function AIAssistantPage() {
 
   const loadTemplates = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/test-generator/templates');
+      const response = await fetch(apiUrls.testGeneratorTemplatesUrl());
       const data = await response.json();
       setAvailableTemplates(data.templates);
     } catch (error) {
@@ -148,13 +171,15 @@ export function AIAssistantPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8081/api/ai/chat', {
+      const response = await fetch(apiUrls.aiChatUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          message: userMessage.content, 
+        body: JSON.stringify({
+          message: userMessage.content,
+          userId: 'frontend-user',
+          sessionId: 'main-chat',
           useRAG: true,
-          context: { 
+          context: {
             source: 'wesign-mentor',
             sessionId: 'main-chat'
           }
@@ -163,15 +188,40 @@ export function AIAssistantPage() {
 
       const data = await response.json();
 
+      // Handle complex response object from Enhanced RAG
+      let responseContent = 'Sorry, I encountered an error processing your request.';
+      if (data.response) {
+        if (typeof data.response === 'string') {
+          responseContent = data.response;
+        } else if (data.response.answer) {
+          responseContent = data.response.answer;
+        } else if (data.response.content) {
+          responseContent = data.response.content;
+        } else {
+          // If response is an object but doesn't have expected fields, stringify it safely
+          responseContent = JSON.stringify(data.response, null, 2);
+        }
+      }
+
       const assistantMessage: Message = {
         role: 'assistant',
-        content: data.response || 'Sorry, I encountered an error processing your request.',
+        content: responseContent,
         timestamp: new Date(),
         code: data.code,
         metadata: {
           contextUsed: data.contextUsed,
           tokensUsed: data.usage?.total_tokens
-        }
+        },
+        // Enhanced RAG data capture
+        ragData: data.response && typeof data.response === 'object' ? {
+          confidence: data.response.confidence,
+          sources: data.response.sources,
+          executionTime: data.response.executionTime,
+          recommendations: data.response.recommendations || [],
+          followUpQuestions: data.response.followUpQuestions || [],
+          relatedTopics: data.response.relatedTopics || [],
+          contextSummary: data.response.context ? data.response.context.substring(0, 200) + '...' : undefined
+        } : undefined
       };
 
       setConversation(prev => [...prev, assistantMessage]);
@@ -195,7 +245,7 @@ export function AIAssistantPage() {
     setParsedTests([]);
 
     try {
-      const response = await fetch('http://localhost:8081/api/test-generator/generate', {
+      const response = await fetch(apiUrls.testGeneratorGenerateUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(testGenRequest)
@@ -318,7 +368,7 @@ export function AIAssistantPage() {
       : [];
 
     try {
-      const response = await fetch('http://localhost:8081/api/test-bank/generated', {
+      const response = await fetch(apiUrls.testBankGeneratedUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -360,6 +410,61 @@ export function AIAssistantPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const toggleMessageExpansion = (index: number) => {
+    setExpandedMessages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
+
+  const getConfidenceColor = (confidence?: number): string => {
+    if (!confidence) return 'text-gray-500';
+    if (confidence >= 0.8) return 'text-green-600';
+    if (confidence >= 0.6) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getConfidenceText = (confidence?: number): string => {
+    if (!confidence) return 'Unknown';
+    if (confidence >= 0.8) return 'High';
+    if (confidence >= 0.6) return 'Medium';
+    return 'Low';
+  };
+
+  const shouldShowRAGFeatures = (msg: Message): boolean => {
+    return msg.role === 'assistant' &&
+           msg.ragData &&
+           (msg.ragData.confidence !== undefined ||
+            msg.ragData.sources !== undefined ||
+            (msg.ragData.recommendations && msg.ragData.recommendations.length > 0) ||
+            (msg.ragData.followUpQuestions && msg.ragData.followUpQuestions.length > 0));
+  };
+
+  const hasRAGFeatures = (msg: Message): boolean => {
+    return shouldShowRAGFeatures(msg);
+  };
+
+  const toggleExpanded = (index: number) => {
+    setExpandedMessages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
+
+  const handleFollowUpClick = (question: string) => {
+    setMessage(question);
   };
 
   const mentorSuggestedQuestions = [
@@ -464,36 +569,180 @@ export function AIAssistantPage() {
               <CardContent className="flex-1 flex flex-col">
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto mb-4 space-y-4">
-                  {conversation.map((msg, index) => (
-                    <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] p-3 rounded-lg ${
-                        msg.role === 'user' 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-gray-100 text-gray-900'
-                      }`}>
-                        <div className="whitespace-pre-wrap">{msg.content}</div>
-                        {msg.code && (
-                          <div className="mt-3 p-3 bg-gray-900 text-green-400 rounded text-sm font-mono overflow-x-auto">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs text-gray-400">Generated Code:</span>
-                              <button 
-                                onClick={() => copyToClipboard(msg.code!)}
-                                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                              >
-                                <Copy className="w-3 h-3" />
-                                Copy
-                              </button>
+                  {conversation.map((msg, index) => {
+                    const isExpanded = expandedMessages.has(index);
+                    const hasRagData = hasRAGFeatures(msg);
+
+                    return (
+                      <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] p-3 rounded-lg ${
+                          msg.role === 'user'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}>
+                          {/* Main Message Content */}
+                          <div className="whitespace-pre-wrap">{msg.content}</div>
+
+                          {/* Code Block */}
+                          {msg.code && (
+                            <div className="mt-3 p-3 bg-gray-900 text-green-400 rounded text-sm font-mono overflow-x-auto">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs text-gray-400">Generated Code:</span>
+                                <button
+                                  onClick={() => copyToClipboard(msg.code!)}
+                                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                  Copy
+                                </button>
+                              </div>
+                              <pre>{msg.code}</pre>
                             </div>
-                            <pre>{msg.code}</pre>
+                          )}
+
+                          {/* RAG Intelligence Indicators (for assistant messages) */}
+                          {msg.role === 'assistant' && hasRagData && (
+                            <div className="mt-3 p-3 bg-white bg-opacity-60 rounded-lg border border-gray-200">
+                              {/* Smart Indicators Row */}
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3 text-xs">
+                                  {/* Confidence Indicator */}
+                                  {msg.ragData?.confidence && (
+                                    <div className="flex items-center gap-1">
+                                      <Target className={`w-3 h-3 ${getConfidenceColor(msg.ragData.confidence)}`} />
+                                      <span className={`font-medium ${getConfidenceColor(msg.ragData.confidence)}`}>
+                                        {Math.round(msg.ragData.confidence * 100)}% confident
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* Sources Count */}
+                                  {msg.ragData?.sources && msg.ragData.sources > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      <BookOpen className="w-3 h-3 text-blue-500" />
+                                      <span className="text-blue-600 font-medium">{msg.ragData.sources} sources</span>
+                                    </div>
+                                  )}
+
+                                  {/* Execution Time */}
+                                  {msg.ragData?.executionTime && (
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3 text-gray-500" />
+                                      <span className="text-gray-600">{msg.ragData.executionTime}ms</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Expand Toggle */}
+                                <button
+                                  onClick={() => toggleExpanded(index)}
+                                  className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded transition-colors"
+                                >
+                                  {isExpanded ? (
+                                    <>
+                                      <ChevronUp className="w-3 h-3" />
+                                      Less
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="w-3 h-3" />
+                                      More
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+
+                              {/* Expandable Advanced Features */}
+                              {isExpanded && (
+                                <div className="space-y-3 border-t border-gray-200 pt-3">
+                                  {/* Context Summary */}
+                                  {msg.ragData?.contextSummary && (
+                                    <div>
+                                      <div className="flex items-center gap-1 mb-1">
+                                        <FileText className="w-3 h-3 text-purple-500" />
+                                        <span className="text-xs font-medium text-purple-600">Knowledge Used:</span>
+                                      </div>
+                                      <p className="text-xs text-gray-700 bg-purple-50 p-2 rounded">
+                                        {msg.ragData.contextSummary}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {/* Recommendations */}
+                                  {msg.ragData?.recommendations && msg.ragData.recommendations.length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-1 mb-2">
+                                        <Lightbulb className="w-3 h-3 text-yellow-500" />
+                                        <span className="text-xs font-medium text-yellow-600">Recommendations:</span>
+                                      </div>
+                                      <ul className="space-y-1">
+                                        {msg.ragData.recommendations.map((rec, recIndex) => (
+                                          <li key={recIndex} className="text-xs text-gray-700 bg-yellow-50 p-2 rounded flex items-start gap-2">
+                                            <span className="text-yellow-500 mt-0.5">•</span>
+                                            <span>{rec}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {/* Follow-up Questions */}
+                                  {msg.ragData?.followUpQuestions && msg.ragData.followUpQuestions.length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-1 mb-2">
+                                        <HelpCircle className="w-3 h-3 text-green-500" />
+                                        <span className="text-xs font-medium text-green-600">Follow-up Questions:</span>
+                                      </div>
+                                      <div className="space-y-1">
+                                        {msg.ragData.followUpQuestions.map((question, qIndex) => (
+                                          <button
+                                            key={qIndex}
+                                            onClick={() => setMessage(question)}
+                                            className="block w-full text-left text-xs text-gray-700 bg-green-50 p-2 rounded hover:bg-green-100 transition-colors"
+                                          >
+                                            {question}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Related Topics */}
+                                  {msg.ragData?.relatedTopics && msg.ragData.relatedTopics.length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-1 mb-2">
+                                        <Tag className="w-3 h-3 text-indigo-500" />
+                                        <span className="text-xs font-medium text-indigo-600">Related Topics:</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {msg.ragData.relatedTopics.map((topic, topicIndex) => (
+                                          <span
+                                            key={topicIndex}
+                                            className="inline-block px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded-full"
+                                          >
+                                            {topic}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Message Metadata */}
+                          <div className="text-xs mt-2 opacity-70 flex items-center gap-2">
+                            <span>{msg.timestamp.toLocaleTimeString()}</span>
+                            {msg.metadata?.tokensUsed && <span>• {msg.metadata.tokensUsed} tokens</span>}
+                            {msg.role === 'assistant' && hasRagData && !isExpanded && (
+                              <span className="text-blue-600 font-medium">• AI Enhanced</span>
+                            )}
                           </div>
-                        )}
-                        <div className="text-xs mt-2 opacity-70">
-                          {msg.timestamp.toLocaleTimeString()}
-                          {msg.metadata?.tokensUsed && ` • ${msg.metadata.tokensUsed} tokens`}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {isLoading && (
                     <div className="flex justify-start">
                       <div className="bg-gray-100 text-gray-900 p-3 rounded-lg flex items-center gap-2">

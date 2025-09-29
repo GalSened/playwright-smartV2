@@ -8,6 +8,7 @@ import { Stat } from '@/components/Stat';
 import { BarChartComponent, LineChartComponent, PieChartComponent } from '@/components/Chart';
 import { formatRelativeTime, getRiskColor } from '@/app/utils';
 import type { CoverageMetric, GapItem, Insight } from '@/app/types';
+import { buildApiUrl } from '@/config/api';
 import { 
   BarChart3, 
   TrendingUp,
@@ -56,7 +57,7 @@ export function AnalyticsPage() {
         console.log('Loading REAL analytics from backend API...');
         
         // Call the new real analytics API
-        const response = await fetch('http://localhost:8083/api/analytics/smart');
+        const response = await fetch(buildApiUrl('/api/analytics/smart'));
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }

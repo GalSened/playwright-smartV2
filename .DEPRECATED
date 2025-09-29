@@ -1,0 +1,16 @@
+DEPRECATED FRONTEND
+===================
+
+This frontend is deprecated and should not be used.
+
+OFFICIAL FRONTEND LOCATION:
+- Path: apps/frontend/dashboard/
+- Port: http://localhost:3001
+- Features: Includes MCP integration, WeSign support, and latest features
+
+MIGRATION:
+- Stop using this directory: playwright-smart/
+- Start using: apps/frontend/dashboard/
+- Command: cd apps/frontend/dashboard && npm run dev
+
+Last updated: 2025-09-25

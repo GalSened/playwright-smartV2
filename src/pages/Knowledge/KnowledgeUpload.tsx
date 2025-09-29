@@ -68,7 +68,7 @@ export function KnowledgeUpload() {
     console.log('Uploading files with category:', category);
 
     try {
-      const response = await fetch('http://localhost:8081/api/knowledge/upload', {
+      const response = await fetch('http://localhost:8082/api/knowledge/upload', {
         method: 'POST',
         body: formData
         // Let browser set Content-Type with boundary
@@ -115,7 +115,7 @@ export function KnowledgeUpload() {
 
   const loadStats = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/knowledge/stats');
+      const response = await fetch('http://localhost:8082/api/knowledge/stats');
       const data = await response.json();
       if (data.success) {
         setStats(data.stats);
@@ -130,7 +130,7 @@ export function KnowledgeUpload() {
     
     setSearching(true);
     try {
-      const response = await fetch('http://localhost:8081/api/knowledge/search', {
+      const response = await fetch('http://localhost:8082/api/knowledge/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -154,7 +154,7 @@ export function KnowledgeUpload() {
 
   const clearCategory = async (categoryName: string) => {
     try {
-      const response = await fetch(`http://localhost:8081/api/knowledge/category/${categoryName}`, {
+      const response = await fetch(`http://localhost:8082/api/knowledge/category/${categoryName}`, {
         method: 'DELETE'
       });
 
